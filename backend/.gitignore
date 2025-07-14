@@ -11,9 +11,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
-.env
-
 # Database config/migrations (raw SQL logs temporare)
 *.sql~  
 *.dump
