@@ -1,8 +1,7 @@
 import { occupyBed, freeBed, rentBed, endRent } from '../services/umbrella.service';
-import { hotel_rent_price, beach_rent_price } from '../config';
 import { useState } from 'react';
 
-type BedStatus = 'free' | 'occupied' | 'rented';
+type BedStatus = 'free' | 'rented_hotel' | 'rented_beach';
 
 interface Bed {
   side: 'left' | 'right';
@@ -23,8 +22,8 @@ interface Props {
 
 const statusColors: Record<BedStatus, string> = {
   free: 'bg-green-400',
-  occupied: 'bg-red-500',
-  rented: 'bg-blue-500',
+  rented_hotel: 'bg-blue-500',
+  rented_beach: 'bg-red-500',
 };
 
 export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh }: Props) {
@@ -36,23 +35,24 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh }: P
   ]);
   const [loading, setLoading] = useState(false);
 
-  // Helper to get the next possible action for a bed
   const getPossibleAction = (status: BedStatus, side: 'left' | 'right', idx: number) => {
     if (status === 'free') {
       return [
-        <button
-          key="occupy"
-          className="px-3 py-1 bg-green-500 text-white rounded w-full"
-          onClick={() => setBedStates((prev) => idx === 0 ? ['occupied', prev[1]] : [prev[0], 'occupied'])}
-          disabled={loading}
-        >
-          Ocupă
-        </button>,
+        (role === 'admin' || role === 'staff') && (
+          <button
+            key="beach"
+            className="px-3 py-1 bg-red-500 text-white rounded w-full"
+            onClick={() => setBedStates((prev) => idx === 0 ? ['rented_beach', prev[1]] : [prev[0], 'rented_beach'])}
+            disabled={loading}
+          >
+            Ocupă
+          </button>
+        ),
         role === 'admin' && (
           <button
-            key="rent"
+            key="hotel"
             className="px-3 py-1 bg-blue-500 text-white rounded w-full mt-2"
-            onClick={() => setBedStates((prev) => idx === 0 ? ['rented', prev[1]] : [prev[0], 'rented'])}
+            onClick={() => setBedStates((prev) => idx === 0 ? ['rented_hotel', prev[1]] : [prev[0], 'rented_hotel'])}
             disabled={loading}
           >
             Închiriază hotel
@@ -60,11 +60,11 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh }: P
         ),
       ];
     }
-    if (status === 'occupied') {
+    if (status === 'rented_beach') {
       return [
         <button
-          key="free"
-          className="px-3 py-1 bg-red-500 text-white rounded w-full"
+          key="free-beach"
+          className="px-3 py-1 bg-green-500 text-white rounded w-full"
           onClick={() => setBedStates((prev) => idx === 0 ? ['free', prev[1]] : [prev[0], 'free'])}
           disabled={loading}
         >
@@ -72,11 +72,11 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh }: P
         </button>,
       ];
     }
-    if (status === 'rented' && role === 'admin') {
+    if (status === 'rented_hotel' && role === 'admin') {
       return [
         <button
-          key="free"
-          className="px-3 py-1 bg-red-500 text-white rounded w-full"
+          key="free-hotel"
+          className="px-3 py-1 bg-green-500 text-white rounded w-full"
           onClick={() => setBedStates((prev) => idx === 0 ? ['free', prev[1]] : [prev[0], 'free'])}
           disabled={loading}
         >
@@ -87,7 +87,6 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh }: P
     return [];
   };
 
-  // Check if any bed state has changed
   const hasChanged = () => {
     return (
       bedStates[0] !== (umbrella.beds.find((b) => b.side === 'left')?.status ?? 'free') ||
@@ -102,25 +101,21 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh }: P
       // Left bed
       const leftOrig = umbrella.beds.find((b) => b.side === 'left')?.status ?? 'free';
       if (bedStates[0] !== leftOrig) {
-        if (bedStates[0] === 'occupied') actions.push(occupyBed(umbrella.id, 'left'));
+        if (bedStates[0] === 'rented_beach') actions.push(rentBed(umbrella.id, 'left', 'beach'));
+        if (bedStates[0] === 'rented_hotel') actions.push(rentBed(umbrella.id, 'left', 'hotel'));
         if (bedStates[0] === 'free') {
-          if (leftOrig === 'occupied') actions.push(freeBed(umbrella.id, 'left'));
-          if (leftOrig === 'rented') actions.push(endRent(umbrella.id, 'left'));
-        }
-        if (bedStates[0] === 'rented') {
-          actions.push(rentBed(umbrella.id, 'left', 'hotel'));
+          if (leftOrig === 'rented_beach') actions.push(freeBed(umbrella.id, 'left'));
+          if (leftOrig === 'rented_hotel') actions.push(endRent(umbrella.id, 'left'));
         }
       }
       // Right bed
       const rightOrig = umbrella.beds.find((b) => b.side === 'right')?.status ?? 'free';
       if (bedStates[1] !== rightOrig) {
-        if (bedStates[1] === 'occupied') actions.push(occupyBed(umbrella.id, 'right'));
+        if (bedStates[1] === 'rented_beach') actions.push(rentBed(umbrella.id, 'right', 'beach'));
+        if (bedStates[1] === 'rented_hotel') actions.push(rentBed(umbrella.id, 'right', 'hotel'));
         if (bedStates[1] === 'free') {
-          if (rightOrig === 'occupied') actions.push(freeBed(umbrella.id, 'right'));
-          if (rightOrig === 'rented') actions.push(endRent(umbrella.id, 'right'));
-        }
-        if (bedStates[1] === 'rented') {
-          actions.push(rentBed(umbrella.id, 'right', 'hotel'));
+          if (rightOrig === 'rented_beach') actions.push(freeBed(umbrella.id, 'right'));
+          if (rightOrig === 'rented_hotel') actions.push(endRent(umbrella.id, 'right'));
         }
       }
       await Promise.all(actions);
@@ -139,16 +134,16 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh }: P
         <h2 className="text-lg font-bold mb-6 text-center">Umbrela #{umbrella.umbrella_number}</h2>
         <div className="flex flex-row gap-8 justify-center mt-4">
           {[['left', 0], ['right', 1]].map(([side, idx]) => {
-            const status = bedStates[idx as number];
+            const status = bedStates[idx as number] as BedStatus;
             return (
               <div key={side} className="flex flex-col items-center w-1/2">
                 <div
-                  className={`w-32 h-40 rounded mb-4 flex items-center justify-center border-2 border-gray-400 ${statusColors[status as BedStatus]}`}
+                  className={`w-32 h-40 rounded mb-4 flex items-center justify-center border-2 border-gray-400 ${statusColors[status]}`}
                 >
                   {/* No text inside the rectangle */}
                 </div>
                 <div className="w-full flex flex-col items-center">
-                  {getPossibleAction(status as BedStatus, side as 'left' | 'right', idx as number)}
+                  {getPossibleAction(status, side as 'left' | 'right', idx as number)}
                 </div>
               </div>
             );

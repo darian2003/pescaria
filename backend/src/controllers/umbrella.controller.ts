@@ -123,7 +123,7 @@ export const freeBed = async (req: Request, res: Response) => {
     await pool.query(
       `UPDATE rentals
          SET end_time = NOW(), ended_by = $1
-         WHERE umbrella_id = $2 AND side = $3 AND action = 'occupy' AND end_time IS NULL`,
+         WHERE umbrella_id = $2 AND side = $3 AND action = 'rented_beach' AND end_time IS NULL`,
       [req.user!.id, umbrellaId, side],
     )
 
@@ -143,37 +143,33 @@ export const rentBed = async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Invalid side" })
   }
 
-  if (req.user?.role !== "admin") {
-    return res.status(403).json({ error: "Only admin can rent beds" })
+  if (type === 'hotel' && req.user?.role !== "admin") {
+    return res.status(403).json({ error: "Only admin can rent hotel beds" })
+  }
+  if (type === 'beach' && !['admin', 'staff'].includes(req.user?.role || '')) {
+    return res.status(403).json({ error: "Only admin or staff can rent beach beds" })
   }
 
   try {
     const bedResult = await pool.query(`SELECT * FROM beds WHERE umbrella_id = $1 AND side = $2`, [umbrellaId, side])
-
     const bed = bedResult.rows[0]
-
     if (!bed) {
       return res.status(404).json({ error: "Bed not found" })
     }
-
-    if (bed.status === "rented") {
+    if (bed.status === "rented_hotel" || bed.status === "rented_beach") {
       return res.status(400).json({ error: "Bed already rented" })
     }
-
-    // Setăm statusul pe 'rented'
-    await pool.query(`UPDATE beds SET status = 'rented' WHERE id = $1`, [bed.id])
-
+    // Setăm statusul pe 'rented_hotel' sau 'rented_beach'
+    let newStatus = type === 'hotel' ? 'rented_hotel' : 'rented_beach';
+    await pool.query(`UPDATE beds SET status = $1 WHERE id = $2`, [newStatus, bed.id])
     // Determine price based on type
-    let price = HOTEL_RENT_PRICE;
-    if (type === 'beach') price = BEACH_RENT_PRICE;
-
+    let price = type === 'hotel' ? HOTEL_RENT_PRICE : BEACH_RENT_PRICE;
     // Inserăm în rentals
     await pool.query(
       `INSERT INTO rentals (umbrella_id, side, started_by, action, price)
-         VALUES ($1, $2, $3, 'rent', $4)`,
-      [umbrellaId, side, req.user!.id, price],
+         VALUES ($1, $2, $3, $4, $5)`,
+      [umbrellaId, side, req.user!.id, newStatus, price],
     )
-
     res.json({ message: "Bed rented successfully" })
   } catch (err) {
     console.error("Error renting bed:", err)
@@ -184,46 +180,33 @@ export const rentBed = async (req: Request, res: Response) => {
 export const endRent = async (req: Request, res: Response) => {
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const side = req.params.side
-  console.log("merge");
-  console.log(side);
-
   if (!["left", "right"].includes(side)) {
     return res.status(400).json({ error: "Invalid side" })
   }
-
   if (req.user?.role !== "admin") {
     return res.status(403).json({ error: "Only admin can end rentals" })
   }
-
   try {
     const bedResult = await pool.query(`SELECT * FROM beds WHERE umbrella_id = $1 AND side = $2`, [umbrellaId, side])
-
     const bed = bedResult.rows[0]
-
     if (!bed) {
       return res.status(404).json({ error: "Bed not found" })
     }
-
-    if (bed.status !== "rented") {
-      return res.status(400).json({ error: "This bed is not currently rented" })
+    if (bed.status !== "rented_hotel") {
+      return res.status(400).json({ error: "This bed is not currently rented from hotel" })
     }
-
-
     // Setăm statusul pe 'free'
     await pool.query(`UPDATE beds SET status = 'free' WHERE id = $1`, [bed.id])
-
     // Completăm închirierea activă în rentals
     const updateResult = await pool.query(
       `UPDATE rentals
          SET end_time = NOW(), ended_by = $1
-         WHERE umbrella_id = $2 AND side = $3 AND action = 'rent' AND end_time IS NULL`,
+         WHERE umbrella_id = $2 AND side = $3 AND action = 'rented_hotel' AND end_time IS NULL`,
       [req.user!.id, umbrellaId, side],
     )
-
     if (updateResult.rowCount === 0) {
-      return res.status(404).json({ error: "No active rent found for this bed" })
+      return res.status(404).json({ error: "No active hotel rent found for this bed" })
     }
-
     res.json({ message: "Rental ended and bed freed" })
   } catch (err) {
     console.error("Error ending rent:", err)
@@ -258,7 +241,6 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
 export const generateReport = async (req: Request, res: Response) => {
   const { date } = req.body; // Expecting 'YYYY-MM-DD'
   if (req.user?.role !== "admin") return res.status(403).json({ error: "Only admin can generate reports" });
-
   // Query rentals for the given day
   const rentals = await pool.query(`
     SELECT r.*, u.username
@@ -266,12 +248,10 @@ export const generateReport = async (req: Request, res: Response) => {
     LEFT JOIN users u ON r.started_by = u.id
     WHERE r.start_time::date = $1
   `, [date]);
-
   // Calculate stats
-  const total_rented = rentals.rows.filter(r => r.action === 'rent').length;
-  const total_occupied = rentals.rows.filter(r => r.action === 'occupy').length;
-  const total_earnings = rentals.rows.filter(r => r.action === 'rent').reduce((sum, r) => sum + Number(r.price), 0);
-
+  const total_rented_hotel = rentals.rows.filter(r => r.action === 'rented_hotel').length;
+  const total_rented_beach = rentals.rows.filter(r => r.action === 'rented_beach').length;
+  const total_earnings = rentals.rows.reduce((sum, r) => sum + Number(r.price), 0);
   // Staff stats
   const staffMap: Record<string, { staff_id: number; username: string; count: number }> = {};
   rentals.rows.forEach(r => {
@@ -281,14 +261,12 @@ export const generateReport = async (req: Request, res: Response) => {
     }
   });
   const staff_stats = Object.values(staffMap);
-
   // Save report
   await pool.query(`
-    INSERT INTO daily_reports (report_date, total_rented, total_occupied, total_earnings, staff_stats)
+    INSERT INTO daily_reports (report_date, total_rented_beach, total_rented_hotel, total_earnings, staff_stats)
     VALUES ($1, $2, $3, $4, $5)
-  `, [date, total_rented, total_occupied, total_earnings, JSON.stringify(staff_stats)]);
-
-  res.json({ report_date: date, total_rented, total_occupied, total_earnings, staff_stats });
+  `, [date, total_rented_beach, total_rented_hotel, total_earnings, JSON.stringify(staff_stats)]);
+  res.json({ report_date: date, total_rented_hotel, total_rented_beach, total_earnings, staff_stats });
 };
 
 export const getAllReports = async (req: Request, res: Response) => {

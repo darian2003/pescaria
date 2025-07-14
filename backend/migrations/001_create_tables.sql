@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS beds (
     id SERIAL PRIMARY KEY,
     umbrella_id INTEGER REFERENCES umbrellas(id) ON DELETE CASCADE,
     side VARCHAR(10) NOT NULL CHECK (side IN ('left', 'right')),
-    status VARCHAR(20) NOT NULL CHECK (status IN ('free', 'occupied', 'rented')),
+    status VARCHAR(20) NOT NULL CHECK (status IN ('free', 'rented_hotel', 'rented_beach')),
     UNIQUE (umbrella_id, side)
 );
 
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS rentals (
     ended_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     start_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     end_time TIMESTAMPTZ,
-    action VARCHAR(20) NOT NULL CHECK (action IN ('occupy', 'rent')),
+    action VARCHAR(20) NOT NULL CHECK (action IN ('rented_hotel', 'rented_beach')),
     price NUMERIC(10,2) NOT NULL DEFAULT 0
 );
 
@@ -48,8 +48,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS daily_reports (
     id SERIAL PRIMARY KEY,
     report_date DATE NOT NULL,
-    total_rented INTEGER NOT NULL,
-    total_occupied INTEGER NOT NULL,
+    total_rented_beach INTEGER NOT NULL,
+    total_rented_hotel INTEGER NOT NULL,
     total_earnings NUMERIC(10,2) NOT NULL,
     generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     staff_stats JSONB NOT NULL

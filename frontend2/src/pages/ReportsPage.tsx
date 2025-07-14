@@ -7,12 +7,12 @@ interface StaffStat {
 }
 
 interface Report {
-  id: number;
+  id?: number;
   report_date: string;
-  total_rented: number;
-  total_occupied: number;
+  total_rented_hotel: number;
+  total_rented_beach: number;
   total_earnings: number;
-  generated_at: string;
+  generated_at?: string;
   staff_stats: StaffStat[];
 }
 
@@ -40,7 +40,7 @@ export default function ReportsPage() {
       .then((res) => res.json())
       .then((data) => {
         // Sort descending by generated_at
-        setReports(data.sort((a: Report, b: Report) => new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime()));
+        setReports(data.sort((a: Report, b: Report) => new Date(b.generated_at || b.report_date).getTime() - new Date(a.generated_at || a.report_date).getTime()));
       });
   };
 
@@ -69,14 +69,14 @@ export default function ReportsPage() {
               <button
                 className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 font-bold"
                 style={{ top: '50%', transform: 'translateY(-50%)' }}
-                onClick={() => setDeleteId(report.id)}
+                onClick={() => setDeleteId(report.id || 0)}
                 title="Șterge raportul"
               >
                 Șterge
               </button>
-              <div className="font-semibold">Data raport: {formatDate(report.generated_at)}</div>
-              <div>Total închirieri: {report.total_rented}</div>
-              <div>Total ocupări: {report.total_occupied}</div>
+              <div className="font-semibold">Data raport: {formatDate(report.generated_at || report.report_date)}</div>
+              <div>Total închirieri plajă: {report.total_rented_beach}</div>
+              <div>Total închirieri hotel: {report.total_rented_hotel}</div>
               <div>Total încasări: {report.total_earnings} lei</div>
               <div className="mt-2">
                 <div className="font-semibold">Statistici staff:</div>
