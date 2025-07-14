@@ -44,3 +44,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at TIMESTAMPTZ NOT NULL,
     is_valid BOOLEAN NOT NULL DEFAULT true
 );
+
+CREATE TABLE IF NOT EXISTS daily_reports (
+    id SERIAL PRIMARY KEY,
+    report_date DATE NOT NULL,
+    total_rented INTEGER NOT NULL,
+    total_occupied INTEGER NOT NULL,
+    total_earnings NUMERIC(10,2) NOT NULL,
+    generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    staff_stats JSONB NOT NULL
+);

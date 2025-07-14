@@ -1,7 +1,7 @@
 -- INSERT UMBRELLAS
 DO $$
 BEGIN
-  FOR i IN 1..160 LOOP
+  FOR i IN 1..150 LOOP
     INSERT INTO umbrellas (umbrella_number) VALUES (i);
   END LOOP;
 END $$;
