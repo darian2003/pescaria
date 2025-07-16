@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import AdminPage from './pages/AdminPage';
 import StaffPage from './pages/StaffPage';
@@ -7,9 +7,12 @@ import ProtectedRoute from './router/ProtectedRoute';
 import Navbar from './components/Navbar';
 
 function App() {
+  const location = useLocation();
+  const hideNavbar = location.pathname === '/' || location.pathname === '/login';
+
   return (
     <>
-      <Navbar />
+      {!hideNavbar && <Navbar />}
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route

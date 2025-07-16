@@ -4,7 +4,7 @@ import dotenv from "dotenv"
 import { DateTime } from 'luxon';
 
 // Price constants
-const HOTEL_RENT_PRICE = 100; // Change as needed
+const HOTEL_RENT_PRICE = 0; // Change as needed
 const BEACH_RENT_PRICE = 50;  // Change as needed
 
 dotenv.config()
