@@ -29,6 +29,7 @@ export default function AdminPage() {
   })
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showReportConfirm, setShowReportConfirm] = useState(false)
+  const [viewMode, setViewMode] = useState<"12x15" | "6x30">("12x15")
 
   // Salvează balanța în localStorage de fiecare dată când se schimbă
   useEffect(() => {
@@ -101,21 +102,42 @@ export default function AdminPage() {
 
   return (
     <div>
-      <h1 className="text-center text-2xl font-bold my-4">Harta Umbrelelor</h1>
-      <div className="text-center mb-4">
-        <div className="inline-block bg-green-100 border border-green-400 rounded-lg px-6 py-3">
-          <span className="text-lg font-semibold text-green-800">Balanță: {balance} lei</span>
+      {/* Header cu balanța și bara de butoane */}
+      <div className="flex flex-col items-center mb-4">
+        <div className="mb-2">
+          <span className="text-lg font-semibold text-green-700">
+            Balanță zi: {balance} lei
+          </span>
+        </div>
+        <div className="flex gap-4">
+          <button
+            className="bg-yellow-500 px-4 py-2 rounded text-white"
+            onClick={handleResetConfirm}
+          >
+            Reset zi
+          </button>
+          <button
+            className="bg-purple-600 px-4 py-2 rounded text-white"
+            onClick={handleReportConfirm}
+          >
+            Generează raport
+          </button>
+          <button
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            onClick={() =>
+              setViewMode((prev) => (prev === "12x15" ? "6x30" : "12x15"))
+            }
+          >
+            Change View ({viewMode === "12x15" ? "6x30" : "12x15"})
+          </button>
         </div>
       </div>
-      <div className="flex justify-center mb-4 gap-4">
-        <button className="bg-yellow-500 px-4 py-2 rounded text-white" onClick={handleResetConfirm}>
-          Reset zi
-        </button>
-        <button className="bg-purple-600 px-4 py-2 rounded text-white" onClick={handleReportConfirm}>
-          Generează raport
-        </button>
-      </div>
-      <UmbrellaMap umbrellas={umbrellas} onSelect={setSelected} />
+
+      <UmbrellaMap
+        umbrellas={umbrellas}
+        onSelect={setSelected}
+        viewMode={viewMode}
+      />
       {selected && (
         <UmbrellaActionsModal
           umbrella={selected}

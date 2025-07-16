@@ -18,38 +18,57 @@ interface Umbrella {
 interface Props {
   umbrellas: Umbrella[]
   onSelect?: (umbrella: Umbrella) => void
+  viewMode?: "12x15" | "6x30"
 }
 
-export default function UmbrellaMap({ umbrellas, onSelect }: Props) {
-  // Creează un array de 180 umbrele (15 rânduri x 12 coloane)
+export default function UmbrellaMap({ umbrellas, onSelect, viewMode = "12x15" }: Props) {
+  // Creează grid-ul în funcție de viewMode
   const createUmbrellaGrid = () => {
     const grid = []
-    for (let row = 0; row < 15; row++) {
-      const rowUmbrellas = []
-      for (let col = 0; col < 12; col++) {
-        const umbrellaNumber = row * 12 + col + 1 // Numerotare 1-180
-        const existingUmbrella = umbrellas.find((u) => u.umbrella_number === umbrellaNumber)
-
-        if (existingUmbrella) {
-          rowUmbrellas.push(existingUmbrella)
-        } else {
-          // Creează umbrela placeholder dacă nu există în backend
-          rowUmbrellas.push({
-            id: umbrellaNumber,
-            umbrella_number: umbrellaNumber,
-            beds: [
-              { side: "left" as const, status: "free" as const },
-              { side: "right" as const, status: "free" as const },
-            ],
-          })
+    if (viewMode === "12x15") {
+      for (let row = 0; row < 15; row++) {
+        const rowUmbrellas = []
+        for (let col = 0; col < 12; col++) {
+          const umbrellaNumber = row * 12 + col + 1
+          const existingUmbrella = umbrellas.find((u) => u.umbrella_number === umbrellaNumber)
+          rowUmbrellas.push(
+            existingUmbrella ?? {
+              id: umbrellaNumber,
+              umbrella_number: umbrellaNumber,
+              beds: [
+                { side: "left" as const, status: "free" as const },
+                { side: "right" as const, status: "free" as const },
+              ],
+            }
+          )
         }
+        grid.push(rowUmbrellas)
       }
-      grid.push(rowUmbrellas)
+    } else {
+      for (let row = 0; row < 30; row++) {
+        const rowUmbrellas = []
+        for (let col = 0; col < 6; col++) {
+          const umbrellaNumber = row * 6 + col + 1
+          const existingUmbrella = umbrellas.find((u) => u.umbrella_number === umbrellaNumber)
+          rowUmbrellas.push(
+            existingUmbrella ?? {
+              id: umbrellaNumber,
+              umbrella_number: umbrellaNumber,
+              beds: [
+                { side: "left" as const, status: "free" as const },
+                { side: "right" as const, status: "free" as const },
+              ],
+            }
+          )
+        }
+        grid.push(rowUmbrellas)
+      }
     }
     return grid
   }
 
   const umbrellaGrid = createUmbrellaGrid()
+  const circleSizeClass = viewMode === "6x30" ? "w-16 h-16" : "w-10 h-10"
 
   return (
     <div className="w-full px-1 sm:px-2 md:px-4">
@@ -66,6 +85,7 @@ export default function UmbrellaMap({ umbrellas, onSelect }: Props) {
                   leftStatus={left}
                   rightStatus={right}
                   onClick={() => onSelect?.(umbrella)}
+                  sizeClass={circleSizeClass}
                 />
               )
             })}

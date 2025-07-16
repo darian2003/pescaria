@@ -17,6 +17,7 @@ interface Umbrella {
 export default function StaffPage() {
   const [umbrellas, setUmbrellas] = useState<Umbrella[]>([]);
   const [selected, setSelected] = useState<Umbrella | null>(null);
+  const [viewMode, setViewMode] = useState<'12x15' | '6x30'>('12x15');
 
   const load = async () => {
     const data = await fetchUmbrellas();
@@ -30,7 +31,23 @@ export default function StaffPage() {
   return (
     <div>
       <h1 className="text-center text-2xl font-bold my-4">Harta Umbrelelor</h1>
-      <UmbrellaMap umbrellas={umbrellas} onSelect={setSelected} />
+      {/* Buton change view pentru staff */}
+      <div className="flex justify-end mb-4">
+        <button
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          onClick={() =>
+            setViewMode((prev) => (prev === '12x15' ? '6x30' : '12x15'))
+          }
+        >
+          Change View ({viewMode === '12x15' ? '6x30' : '12x15'})
+        </button>
+      </div>
+
+      <UmbrellaMap
+        umbrellas={umbrellas}
+        onSelect={setSelected}
+        viewMode={viewMode}
+      />
       {selected && (
         <UmbrellaActionsModal umbrella={selected} onClose={() => setSelected(null)} onRefresh={load} />
       )}
