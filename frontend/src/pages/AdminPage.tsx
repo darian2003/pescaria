@@ -23,30 +23,22 @@ export default function AdminPage() {
   const [reportSuccess, setReportSuccess] = useState(false)
   const navigate = useNavigate()
 
-  const [balance, setBalance] = useState(0)
+  const [balance, setBalance] = useState(() => {
+    const saved = localStorage.getItem("dailyBalance")
+    return saved ? Number.parseInt(saved) : 0
+  })
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showReportConfirm, setShowReportConfirm] = useState(false)
 
-  const calculateBalance = (umbrellas: Umbrella[]) => {
-    let total = 0
-    umbrellas.forEach((umbrella) => {
-      umbrella.beds.forEach((bed) => {
-        if (bed.status === "rented_hotel") {
-          total += 0 // hotel_rent_price
-        } else if (bed.status === "rented_beach") {
-          total += 50 // beach_rent_price
-        }
-      })
-    })
-    return total
-  }
+  // Salvează balanța în localStorage de fiecare dată când se schimbă
+  useEffect(() => {
+    localStorage.setItem("dailyBalance", balance.toString())
+  }, [balance])
 
   const load = async () => {
     try {
       const data = await fetchUmbrellas()
       setUmbrellas(data)
-      const newBalance = calculateBalance(data)
-      setBalance(newBalance)
     } catch (error) {
       console.error("Eroare la încărcarea datelor:", error)
     }
@@ -63,6 +55,7 @@ export default function AdminPage() {
     try {
       await resetDay()
       setBalance(0)
+      localStorage.setItem("dailyBalance", "0")
       await load()
       setShowResetConfirm(false)
       alert("Ziua a fost resetată cu succes!")
@@ -82,6 +75,11 @@ export default function AdminPage() {
       console.error("Eroare la generarea raportului:", error)
       alert("Eroare la generarea raportului. Încercați din nou.")
     }
+  }
+
+  // Funcție pentru actualizarea balanței când se face o închiriere nouă
+  const handleBalanceUpdate = (change: number) => {
+    setBalance((prev) => prev + change)
   }
 
   if (reportSuccess) {
@@ -118,7 +116,14 @@ export default function AdminPage() {
         </button>
       </div>
       <UmbrellaMap umbrellas={umbrellas} onSelect={setSelected} />
-      {selected && <UmbrellaActionsModal umbrella={selected} onClose={() => setSelected(null)} onRefresh={load} />}
+      {selected && (
+        <UmbrellaActionsModal
+          umbrella={selected}
+          onClose={() => setSelected(null)}
+          onRefresh={load}
+          onBalanceUpdate={handleBalanceUpdate}
+        />
+      )}
 
       {/* Modal confirmare resetare */}
       {showResetConfirm && (
@@ -151,10 +156,7 @@ export default function AdminPage() {
             <h2 className="text-xl font-bold mb-4 text-purple-600">Generare raport</h2>
             <p className="mb-6">Ești sigur că vrei să generezi raportul?</p>
             <div className="space-x-4">
-              <button
-                className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-                onClick={handleReport}
-              >
+              <button className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700" onClick={handleReport}>
                 Da
               </button>
               <button
