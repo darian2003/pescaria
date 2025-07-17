@@ -1,9 +1,11 @@
 "use client"
 
+import { Fragment, useState } from "react"
+import { Dialog, Transition } from "@headlessui/react"
+import { X } from "lucide-react"
 import { freeBed, rentBed, endRent } from "../services/umbrella.service"
-import { useState } from "react"
 
-type BedStatus = "free" | "rented_hotel" | "rented_beach"
+type BedStatus = "free" | "rented_beach" | "rented_hotel"
 
 interface Bed {
   side: "left" | "right"
@@ -12,7 +14,7 @@ interface Bed {
 
 interface Umbrella {
   id: number
-  umbrella_number: numbera
+  umbrella_number: number
   beds: Bed[]
 }
 
@@ -23,79 +25,41 @@ interface Props {
   onBalanceUpdate?: (change: number) => void
 }
 
-const statusColors: Record<BedStatus, string> = {
-  free: "bg-green-400",
-  rented_hotel: "bg-blue-500",
-  rented_beach: "bg-red-500",
-}
-
-export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onBalanceUpdate }: Props) {
+export default function UmbrellaActionsModal({
+  umbrella,
+  onClose,
+  onRefresh,
+  onBalanceUpdate,
+}: Props) {
   const role = localStorage.getItem("role")
-  // Track intended new status for each bed
   const [bedStates, setBedStates] = useState<BedStatus[]>([
     umbrella.beds.find((b) => b.side === "left")?.status ?? "free",
     umbrella.beds.find((b) => b.side === "right")?.status ?? "free",
   ])
   const [loading, setLoading] = useState(false)
 
-  const getPossibleAction = (status: BedStatus, side: "left" | "right", idx: number) => {
-    if (status === "free") {
-      return [
-        (role === "admin" || role === "staff") && (
-          <button
-            key="beach"
-            className="px-3 py-1 bg-red-500 text-white rounded w-full"
-            onClick={() => setBedStates((prev) => (idx === 0 ? ["rented_beach", prev[1]] : [prev[0], "rented_beach"]))}
-            disabled={loading}
-          >
-            Ocupă
-          </button>
-        ),
-        role === "admin" && (
-          <button
-            key="hotel"
-            className="px-3 py-1 bg-blue-500 text-white rounded w-full mt-2"
-            onClick={() => setBedStates((prev) => (idx === 0 ? ["rented_hotel", prev[1]] : [prev[0], "rented_hotel"]))}
-            disabled={loading}
-          >
-            Închiriază hotel
-          </button>
-        ),
-      ]
-    }
-    if (status === "rented_beach") {
-      return [
-        <button
-          key="free-beach"
-          className="px-3 py-1 bg-green-500 text-white rounded w-full"
-          onClick={() => setBedStates((prev) => (idx === 0 ? ["free", prev[1]] : [prev[0], "free"]))}
-          disabled={loading}
-        >
-          Eliberează
-        </button>,
-      ]
-    }
-    if (status === "rented_hotel" && role === "admin") {
-      return [
-        <button
-          key="free-hotel"
-          className="px-3 py-1 bg-green-500 text-white rounded w-full"
-          onClick={() => setBedStates((prev) => (idx === 0 ? ["free", prev[1]] : [prev[0], "free"]))}
-          disabled={loading}
-        >
-          Eliberează
-        </button>,
-      ]
-    }
-    return []
+  // Toggle Liber <-> Ocupat(plajă)
+  const toggleBeach = (idx: number) => {
+    setBedStates((prev) => {
+      const next = [...prev]
+      next[idx] = prev[idx] === "free" ? "rented_beach" : "free"
+      return next
+    })
   }
 
-  const hasChanged = () => {
-    return (
-      bedStates[0] !== (umbrella.beds.find((b) => b.side === "left")?.status ?? "free") ||
-      bedStates[1] !== (umbrella.beds.find((b) => b.side === "right")?.status ?? "free")
-    )
+  // Toggle hotel
+  const toggleHotel = (idx: number) => {
+    setBedStates((prev) => {
+      const next = [...prev]
+      next[idx] = prev[idx] === "rented_hotel" ? "free" : "rented_hotel"
+      return next
+    })
   }
+
+  const hasChanged = () =>
+    bedStates.some(
+      (s, i) => s !== (umbrella.beds[i]?.status ?? "free")
+    )
 
   const handleConfirm = async () => {
     setLoading(true)
@@ -103,59 +67,36 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
       const actions: Promise<any>[] = []
       let balanceChange = 0
 
-      // Left bed
-      const leftOrig = umbrella.beds.find((b) => b.side === "left")?.status ?? "free"
-      if (bedStates[0] !== leftOrig) {
-        if (bedStates[0] === "rented_beach") {
-          actions.push(rentBed(umbrella.id, "left", "beach"))
-          balanceChange += 50 // Adaugă 50 lei pentru închiriere nouă
-        }
-        if (bedStates[0] === "rented_hotel") {
-          actions.push(rentBed(umbrella.id, "left", "hotel"))
-          // Nu se adaugă nimic pentru hotel (conform config-ului)
-        }
-        if (bedStates[0] === "free") {
-          if (leftOrig === "rented_beach") {
-            actions.push(freeBed(umbrella.id, "left"))
-            // NU se scade nimic când se eliberează
-          }
-          if (leftOrig === "rented_hotel") {
-            actions.push(endRent(umbrella.id, "left"))
-            // NU se scade nimic când se eliberează
-          }
-        }
-      }
+      umbrella.beds.forEach((b, i) => {
+        const orig = b.status
+        const neu = bedStates[i]
+        if (orig === neu) return
 
-      // Right bed
-      const rightOrig = umbrella.beds.find((b) => b.side === "right")?.status ?? "free"
-      if (bedStates[1] !== rightOrig) {
-        if (bedStates[1] === "rented_beach") {
-          actions.push(rentBed(umbrella.id, "right", "beach"))
-          balanceChange += 50 // Adaugă 50 lei pentru închiriere nouă
+        // Închirieri noi
+        if (neu === "rented_beach") {
+          actions.push(rentBed(umbrella.id, b.side, "beach"))
+          balanceChange += 50
         }
-        if (bedStates[1] === "rented_hotel") {
-          actions.push(rentBed(umbrella.id, "right", "hotel"))
-          // Nu se adaugă nimic pentru hotel (conform config-ului)
+        if (neu === "rented_hotel") {
+          actions.push(rentBed(umbrella.id, b.side, "hotel"))
+          // fără balanță
         }
-        if (bedStates[1] === "free") {
-          if (rightOrig === "rented_beach") {
-            actions.push(freeBed(umbrella.id, "right"))
-            // NU se scade nimic când se eliberează
+
+        // Eliberări
+        if (neu === "free") {
+          if (orig === "rented_beach") {
+            actions.push(freeBed(umbrella.id, b.side))
           }
-          if (rightOrig === "rented_hotel") {
-            actions.push(endRent(umbrella.id, "right"))
-            // NU se scade nimic când se eliberează
+          if (orig === "rented_hotel") {
+            actions.push(endRent(umbrella.id, b.side))
           }
         }
-      }
+      })
 
       await Promise.all(actions)
-
-      // Actualizează balanța doar dacă s-au făcut închirieri noi
       if (balanceChange > 0 && onBalanceUpdate) {
         onBalanceUpdate(balanceChange)
       }
-
       await onRefresh()
       onClose()
     } catch (e: any) {
@@ -165,47 +106,109 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
     }
   }
 
+  const statusConfig: Record<BedStatus, { bg: string; text: string }> = {
+    free: { bg: "bg-green-600", text: "Liber" },
+    rented_beach: { bg: "bg-red-600", text: "Ocupat" },
+    rented_hotel: { bg: "bg-blue-600", text: "Hotel" },
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-10 rounded w-[600px] h-[500px] shadow-lg flex flex-col justify-between">
-        <h2 className="text-lg font-bold mb-6 text-center">Umbrela #{umbrella.umbrella_number}</h2>
-        <div className="flex flex-row gap-8 justify-center mt-4">
-          {[
-            ["left", 0],
-            ["right", 1],
-          ].map(([side, idx]) => {
-            const status = bedStates[idx as number] as BedStatus
-            return (
-              <div key={side} className="flex flex-col items-center w-1/2">
-                <div
-                  className={`w-32 h-40 rounded mb-4 flex items-center justify-center border-2 border-gray-400 ${statusColors[status]}`}
+    <Transition.Root show as={Fragment}>
+      <Dialog
+        as="div"
+        className="fixed inset-0 z-50 overflow-y-auto"
+        onClose={onClose}
+      >
+        {/* backdrop */}
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-200"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-150"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+        </Transition.Child>
+
+        {/* panel */}
+        <div className="flex min-h-full items-center justify-center p-4">
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            enterTo="opacity-100 translate-y-0 sm:scale-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+            leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+          >
+            <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
+              {/* header */}
+              <div className="flex items-center justify-between">
+                <Dialog.Title className="text-xl font-bold text-gray-900">
+                  Umbrela #{umbrella.umbrella_number}
+                </Dialog.Title>
+                <button
+                  onClick={onClose}
+                  className="p-1 text-gray-500 hover:text-gray-700"
                 >
-                  {/* No text inside the rectangle */}
-                </div>
-                <div className="w-full flex flex-col items-center">
-                  {getPossibleAction(status, side as "left" | "right", idx as number)}
-                </div>
+                  <X size={24} />
+                </button>
               </div>
-            )
-          })}
+
+              {/* beds */}
+              <div className="mt-6 grid grid-cols-2 gap-6">
+                {umbrella.beds.map((b, i) => {
+                  const cfg = statusConfig[bedStates[i]]
+                  return (
+                    <div
+                      key={b.side}
+                      className="flex flex-col items-center gap-4 rounded-lg border border-gray-200 p-4"
+                    >
+                      {/* box click */}
+                      <div
+                        onClick={() => !loading && toggleBeach(i)}
+                        className={`${cfg.bg} flex h-32 w-28 cursor-pointer items-center justify-center rounded border-2 border-gray-300`}
+                      >
+                        <span className="font-semibold">{cfg.text}</span>
+                      </div>
+                      {/* hotel btn */}
+                      {role === "admin" && (
+                        <button
+                          onClick={() => !loading && toggleHotel(i)}
+                          className="w-full rounded bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                          disabled={loading}
+                        >
+                          Hotel
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* footer */}
+              <div className="mt-8 flex justify-end gap-4">
+                <button
+                  onClick={onClose}
+                  disabled={loading}
+                  className="rounded bg-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-400 disabled:opacity-50"
+                >
+                  Renunță
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={loading || !hasChanged()}
+                  className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  Confirmă
+                </button>
+              </div>
+            </Dialog.Panel>
+          </Transition.Child>
         </div>
-        <div className="flex gap-12 mt-12 mb-2 justify-between">
-          <button
-            className="flex-1 bg-gray-400 text-white py-3 rounded text-lg mr-4"
-            onClick={onClose}
-            disabled={loading}
-          >
-            Renunță
-          </button>
-          <button
-            className="flex-1 bg-green-600 text-white py-3 rounded text-lg ml-4 disabled:opacity-50"
-            onClick={handleConfirm}
-            disabled={loading || !hasChanged()}
-          >
-            Confirmă
-          </button>
-        </div>
-      </div>
-    </div>
+      </Dialog>
+    </Transition.Root>
   )
 }

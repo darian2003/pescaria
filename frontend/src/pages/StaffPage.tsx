@@ -31,20 +31,31 @@ export default function StaffPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-col items-center mb-8 bg-white p-6 rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">Harta Umbrelelor</h1>
-        {/* Buton change view pentru staff */}
+    <div className="min-h-screen bg-gray-50">
+      {/* HEADER STAFF */}
+      <div className="sticky top-0 z-10 bg-white border-b shadow px-6 py-4 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-green-700">Staff</h1>
         <button
-          className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-lg shadow-sm transition-colors duration-200 ease-in-out text-base"
+          className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1 rounded-full shadow-sm transition"
           onClick={() => setViewMode((prev) => (prev === "12x15" ? "6x30" : "12x15"))}
         >
-          Schimbă Vizualizarea ({viewMode === "12x15" ? "6x30" : "12x15"})
+          Vizualizare: {viewMode === "12x15" ? "6x30" : "12x15"}
         </button>
       </div>
 
-      <UmbrellaMap umbrellas={umbrellas} onSelect={setSelected} viewMode={viewMode} />
-      {selected && <UmbrellaActionsModal umbrella={selected} onClose={() => setSelected(null)} onRefresh={load} />}
+      {/* HARTA SUB HEADER */}
+      <div className="p-4 sm:p-6 lg:p-8">
+        <UmbrellaMap umbrellas={umbrellas} onSelect={setSelected} viewMode={viewMode} />
+      </div>
+
+      {/* MODAL ACȚIUNI */}
+      {selected && (
+        <UmbrellaActionsModal
+          umbrella={selected}
+          onClose={() => setSelected(null)}
+          onRefresh={load}
+        />
+      )}
     </div>
   )
 }
