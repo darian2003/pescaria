@@ -39,7 +39,7 @@ export default function UmbrellaMap({ umbrellas, onSelect, viewMode = "12x15" }:
                 { side: "left" as const, status: "free" as const },
                 { side: "right" as const, status: "free" as const },
               ],
-            }
+            },
           )
         }
         grid.push(rowUmbrellas)
@@ -58,7 +58,7 @@ export default function UmbrellaMap({ umbrellas, onSelect, viewMode = "12x15" }:
                 { side: "left" as const, status: "free" as const },
                 { side: "right" as const, status: "free" as const },
               ],
-            }
+            },
           )
         }
         grid.push(rowUmbrellas)
@@ -68,7 +68,7 @@ export default function UmbrellaMap({ umbrellas, onSelect, viewMode = "12x15" }:
   }
 
   const umbrellaGrid = createUmbrellaGrid()
-  const circleSizeClass = viewMode === "6x30" ? "w-16 h-16" : "w-10 h-10"
+  const circleSizeClass = viewMode === "6x30" ? "w-30 h-30" : "w-10 h-10"
 
   return (
     <div className="w-full px-1 sm:px-2 md:px-4">

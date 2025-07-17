@@ -101,43 +101,37 @@ export default function AdminPage() {
   }
 
   return (
-    <div>
-      {/* Header cu balanța și bara de butoane */}
-      <div className="flex flex-col items-center mb-4">
-        <div className="mb-2">
-          <span className="text-lg font-semibold text-green-700">
-            Balanță zi: {balance} lei
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      {/* Header with balance and buttons */}
+      <div className="flex flex-col items-center mb-8 bg-white p-6 rounded-lg shadow-md">
+        <div className="mb-4">
+          <span className="text-2xl font-bold text-green-700">
+            Balanță zi: <span className="text-green-600">{balance} lei</span>
           </span>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
           <button
-            className="bg-yellow-500 px-4 py-2 rounded text-white"
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2 rounded-lg shadow-sm transition-colors duration-200 ease-in-out text-base"
             onClick={handleResetConfirm}
           >
             Reset zi
           </button>
           <button
-            className="bg-purple-600 px-4 py-2 rounded text-white"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg shadow-sm transition-colors duration-200 ease-in-out text-base"
             onClick={handleReportConfirm}
           >
             Generează raport
           </button>
           <button
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            onClick={() =>
-              setViewMode((prev) => (prev === "12x15" ? "6x30" : "12x15"))
-            }
+            className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-lg shadow-sm transition-colors duration-200 ease-in-out text-base"
+            onClick={() => setViewMode((prev) => (prev === "12x15" ? "6x30" : "12x15"))}
           >
-            Change View ({viewMode === "12x15" ? "6x30" : "12x15"})
+            Schimbă Vizualizarea ({viewMode === "12x15" ? "6x30" : "12x15"})
           </button>
         </div>
       </div>
 
-      <UmbrellaMap
-        umbrellas={umbrellas}
-        onSelect={setSelected}
-        viewMode={viewMode}
-      />
+      <UmbrellaMap umbrellas={umbrellas} onSelect={setSelected} viewMode={viewMode} />
       {selected && (
         <UmbrellaActionsModal
           umbrella={selected}
@@ -149,19 +143,19 @@ export default function AdminPage() {
 
       {/* Modal confirmare resetare */}
       {showResetConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded shadow-md w-96 text-center">
-            <h2 className="text-xl font-bold mb-4 text-yellow-600">Resetare zi</h2>
-            <p className="mb-6">Ești sigur că vrei să resetezi ziua?</p>
-            <div className="space-x-4">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all duration-300 scale-100">
+            <h2 className="text-2xl font-bold mb-5 text-yellow-600">Resetare zi</h2>
+            <p className="mb-7 text-gray-700 text-lg">Ești sigur că vrei să resetezi ziua?</p>
+            <div className="flex justify-center gap-4">
               <button
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 ease-in-out text-base"
                 onClick={handleResetOnly}
               >
                 Da
               </button>
               <button
-                className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
+                className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-2 rounded-lg transition-colors duration-200 ease-in-out text-base"
                 onClick={() => setShowResetConfirm(false)}
               >
                 Nu
@@ -173,16 +167,19 @@ export default function AdminPage() {
 
       {/* Modal confirmare generare raport */}
       {showReportConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded shadow-md w-96 text-center">
-            <h2 className="text-xl font-bold mb-4 text-purple-600">Generare raport</h2>
-            <p className="mb-6">Ești sigur că vrei să generezi raportul?</p>
-            <div className="space-x-4">
-              <button className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700" onClick={handleReport}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center transform transition-all duration-300 scale-100">
+            <h2 className="text-2xl font-bold mb-5 text-purple-600">Generare raport</h2>
+            <p className="mb-7 text-gray-700 text-lg">Ești sigur că vrei să generezi raportul?</p>
+            <div className="flex justify-center gap-4">
+              <button
+                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors duration-200 ease-in-out text-base"
+                onClick={handleReport}
+              >
                 Da
               </button>
               <button
-                className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
+                className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-2 rounded-lg transition-colors duration-200 ease-in-out text-base"
                 onClick={() => setShowReportConfirm(false)}
               >
                 Nu
