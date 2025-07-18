@@ -5,21 +5,12 @@ import UmbrellaMap from "../components/UmbrellaMap"
 import UmbrellaActionsModal from "../components/UmbrellaActionsModal"
 import { fetchUmbrellas, resetDay, generateReport } from "../services/umbrella.service"
 import { useNavigate } from "react-router-dom"
+import type { Umbrella } from "../types"
 
-interface Bed {
-  side: "left" | "right"
-  status: "free" | "occupied" | "rented" | "rented_hotel" | "rented_beach"
-}
-
-interface Umbrella {
-  id: number
-  umbrella_number: number
-  beds: Bed[]
-}
 
 export default function AdminPage() {
-  const [umbrellas, setUmbrellas] = useState<Umbrella[]>([])
   const [selected, setSelected] = useState<Umbrella | null>(null)
+  const [umbrellas, setUmbrellas] = useState<Umbrella[]>([])
   const [reportSuccess, setReportSuccess] = useState(false)
   const [balance, setBalance] = useState(() => {
     const saved = localStorage.getItem("dailyBalance")
@@ -38,8 +29,9 @@ export default function AdminPage() {
 
   const load = async () => {
     try {
-      const data = await fetchUmbrellas()
-      setUmbrellas(data)
+      const data = await fetchUmbrellas();
+      setUmbrellas(data);
+      setBalance(calculateBalance(data)); // <-- aici!
     } catch (error) {
       console.error("Eroare la încărcarea datelor:", error)
     }
@@ -51,15 +43,15 @@ export default function AdminPage() {
 
   const handleResetOnly = async () => {
     try {
-      await resetDay()
-      setBalance(0)
-      localStorage.setItem("dailyBalance", "0")
-      await load()
-      setShowResetConfirm(false)
-      alert("Ziua a fost resetată cu succes!")
+      await resetDay(); // Apelează endpoint-ul care resetează tot (inclusiv rentals și rapoarte)
+      setBalance(0); // Resetează balanța local
+      localStorage.setItem("dailyBalance", "0");
+      await load(); // Reîncarcă umbrelele și balanța
+      setShowResetConfirm(false);
+      alert("Ziua a fost resetată complet!");
     } catch (error) {
-      console.error("Eroare la resetarea zilei:", error)
-      alert("Eroare la resetarea zilei. Încercați din nou.")
+      console.error("Eroare la resetarea zilei:", error);
+      alert("Eroare la resetarea zilei. Încercați din nou.");
     }
   }
 
@@ -77,6 +69,18 @@ export default function AdminPage() {
 
   const handleBalanceUpdate = (change: number) => {
     setBalance((prev) => prev + change)
+  }
+
+  function calculateBalance(umbrellas: Umbrella[]) {
+    let total = 0;
+    umbrellas.forEach((umbrella) => {
+      umbrella.beds.forEach((bed) => {
+        if (bed.status === "rented_beach") total += 50;
+        // dacă staff folosește alt status, adaugă și acolo
+        // if (bed.status === "occupied") total += 50;
+      });
+    });
+    return total;
   }
 
   if (reportSuccess) {
@@ -126,6 +130,16 @@ export default function AdminPage() {
           >
             Generează raport
           </button>
+          <button
+            onClick={() => {
+              localStorage.removeItem("token");
+              localStorage.removeItem("role");
+              navigate("/");
+            }}
+            className="bg-red-500 text-white px-4 py-2 rounded shadow hover:bg-red-600 transition"
+          >
+            Log out
+          </button>
         </div>
 
         {/* MENIU HAMBURGER */}
@@ -158,13 +172,24 @@ export default function AdminPage() {
             onClick={() => { setShowResetConfirm(true); setMenuOpen(false) }}
             className="bg-green-600 text-white px-6 py-3 rounded shadow hover:bg-green-700 transition w-2/3 text-center"
           >
-            Reset zi
+            Resetare zi
           </button>
           <button
             onClick={() => { setShowReportConfirm(true); setMenuOpen(false) }}
             className="bg-green-600 text-white px-6 py-3 rounded shadow hover:bg-green-700 transition w-2/3 text-center"
           >
             Generează raport
+          </button>
+          <button
+            onClick={() => {
+              localStorage.removeItem("token");
+              localStorage.removeItem("role");
+              setMenuOpen(false);
+              navigate("/");
+            }}
+            className="bg-red-500 text-white px-6 py-3 rounded shadow hover:bg-red-600 transition w-2/3 text-center"
+          >
+            Log out
           </button>
           <button
             onClick={() => setMenuOpen(false)}
