@@ -43,8 +43,8 @@ export default function AdminPage() {
 
   const handleResetOnly = async () => {
     try {
-      await resetDay(); // Apelează endpoint-ul care resetează tot (inclusiv rentals și rapoarte)
-      setBalance(0); // Resetează balanța local
+      await resetDay(); // Resetează tot în backend
+      setBalance(0); // Balanță locală la zero
       localStorage.setItem("dailyBalance", "0");
       await load(); // Reîncarcă umbrelele și balanța
       setShowResetConfirm(false);

@@ -221,15 +221,8 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
 
   try {
     // 1. Eliberăm toate paturile
-    await pool.query(`UPDATE beds SET status = 'free'`)
-
-    // 2. Închidem toate înregistrările deschise din rentals
-    await pool.query(
-      `UPDATE rentals
-         SET end_time = NOW(), ended_by = $1
-         WHERE end_time IS NULL`,
-      [req.user!.id],
-    )
+    await pool.query(`UPDATE beds SET status = 'free'`);
+    await pool.query(`DELETE FROM rentals WHERE start_time::date = CURRENT_DATE`);
 
     res.json({ message: "All beds reset and active rentals closed" })
   } catch (err) {
