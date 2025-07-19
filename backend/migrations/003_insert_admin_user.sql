@@ -1,8 +1,8 @@
 INSERT INTO users (username, password, role)
 VALUES 
-  ('Vlad', 'popasulpescarilor2007', 'admin'),
-  ('Binod', '123456', 'staff'),
-  ('Sagar', '123456', 'staff'),
-  ('Robert', '123456', 'staff'),
-  ('Sabina', '123456', 'staff')
+  ('vlad', 'popasulpescarilor2007', 'admin'),
+  ('binod', '123456', 'staff'),
+  ('sagar', '123456', 'staff'),
+  ('robert', '123456', 'staff'),
+  ('sabina', '123456', 'staff')
 ON CONFLICT (username) DO NOTHING;
