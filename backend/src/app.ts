@@ -3,6 +3,7 @@ import cors from "cors"
 import dotenv from "dotenv"
 import authRoutes from "./routes/auth.routes"
 import umbrellaRoutes from "./routes/umbrella.routes"
+import reportsRoutes from "./routes/reports.routes";
 
 dotenv.config()
 const app = express()
@@ -15,7 +16,8 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/login", authRoutes)
-app.use("/umbrellas", umbrellaRoutes)
+app.use("/umbrellas", umbrellaRoutes);
+app.use("/umbrellas", reportsRoutes);
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {

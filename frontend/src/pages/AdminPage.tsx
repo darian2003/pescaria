@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import UmbrellaMap from "../components/UmbrellaMap"
 import UmbrellaActionsModal from "../components/UmbrellaActionsModal"
-import { fetchUmbrellas, resetDay, generateReport } from "../services/umbrella.service"
+import { fetchUmbrellas, resetDay, generateReport, fetchTodayEarnings } from "../services/umbrella.service"
 import { useNavigate } from "react-router-dom"
 import type { Umbrella } from "../types"
 
@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [viewMode, setViewMode] = useState<"12x15" | "6x30">("12x15")
   const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
+  const [showResetSuccess, setShowResetSuccess] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("dailyBalance", balance.toString())
@@ -31,7 +32,9 @@ export default function AdminPage() {
     try {
       const data = await fetchUmbrellas();
       setUmbrellas(data);
-      setBalance(calculateBalance(data)); // <-- aici!
+      // Fetch today's earnings for balance
+      const earnings = await fetchTodayEarnings();
+      setBalance(earnings.total_earnings || 0);
     } catch (error) {
       console.error("Eroare la încărcarea datelor:", error)
     }
@@ -48,7 +51,7 @@ export default function AdminPage() {
       localStorage.setItem("dailyBalance", "0");
       await load(); // Reîncarcă umbrelele și balanța
       setShowResetConfirm(false);
-      alert("Ziua a fost resetată complet!");
+      setShowResetSuccess(true);
     } catch (error) {
       console.error("Eroare la resetarea zilei:", error);
       alert("Eroare la resetarea zilei. Încercați din nou.");
@@ -67,21 +70,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleBalanceUpdate = (change: number) => {
-    setBalance((prev) => prev + change)
-  }
-
-  function calculateBalance(umbrellas: Umbrella[]) {
-    let total = 0;
-    umbrellas.forEach((umbrella) => {
-      umbrella.beds.forEach((bed) => {
-        if (bed.status === "rented_beach") total += 50;
-        // dacă staff folosește alt status, adaugă și acolo
-        // if (bed.status === "occupied") total += 50;
-      });
-    });
-    return total;
-  }
+  // Remove or ignore calculateBalance and handleBalanceUpdate, as balance is now set from backend
 
   if (reportSuccess) {
     return (
@@ -226,7 +215,7 @@ export default function AdminPage() {
           umbrella={selected}
           onClose={() => setSelected(null)}
           onRefresh={load}
-          onBalanceUpdate={handleBalanceUpdate}
+          onBalanceUpdate={() => {}} // No longer needed
         />
       )}
 
@@ -272,6 +261,21 @@ export default function AdminPage() {
                 Nu
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showResetSuccess && (
+        <div className="flex flex-col items-center justify-center fixed inset-0 bg-black bg-opacity-60 z-50">
+          <div className="bg-white p-8 rounded shadow-md w-96 text-center">
+            <h2 className="text-2xl font-bold mb-4 text-green-600">Ziua a fost resetată cu succes!</h2>
+            <p className="mb-4">Toate paturile au fost eliberate și balanța a fost resetată.</p>
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              onClick={() => setShowResetSuccess(false)}
+            >
+              Închide
+            </button>
           </div>
         </div>
       )}

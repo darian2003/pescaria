@@ -45,3 +45,8 @@ export const rentBed = async (umbrellaId: number, side: string, type: 'hotel' | 
 export const endRent = async (umbrellaId: number, side: string) => {
   await fetchWithAuth(`${API_BACKEND}/umbrellas/${umbrellaId}/end-rent/${side}`, { method: 'POST' });
 };
+
+export const fetchTodayEarnings = async () => {
+  const res = await fetchWithAuth(`${API_BACKEND}/umbrellas/earnings`);
+  return await res.json();
+};

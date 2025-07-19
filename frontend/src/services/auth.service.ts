@@ -1,6 +1,7 @@
 const API_BACKEND = import.meta.env.VITE_API_BACKEND;
 
 export const login = async (username: string, password: string) => {
+  console.log(API_BACKEND);
     const res = await fetch(`${API_BACKEND}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
