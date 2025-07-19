@@ -19,6 +19,7 @@ const pool = new Pool({
 })
 
 export const getAllUmbrellas = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] getAllUmbrellas called")
   try {
     const result = await pool.query(`
       SELECT u.id AS umbrella_id, u.umbrella_number,
@@ -58,6 +59,7 @@ export const getAllUmbrellas = async (req: Request, res: Response) => {
 }
 
 export const occupyBed = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] occupyBed called with params:", req.params)
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const side = req.params.side
 
@@ -96,6 +98,7 @@ export const occupyBed = async (req: Request, res: Response) => {
 }
 
 export const freeBed = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] freeBed called with params:", req.params)
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const side = req.params.side
 
@@ -135,6 +138,7 @@ export const freeBed = async (req: Request, res: Response) => {
 }
 
 export const rentBed = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] rentBed called with params:", req.params, "body:", req.body)
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const side = req.params.side
   const { type } = req.body // 'hotel' or 'beach'
@@ -178,6 +182,7 @@ export const rentBed = async (req: Request, res: Response) => {
 }
 
 export const endRent = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] endRent called with params:", req.params)
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const side = req.params.side
   if (!["left", "right"].includes(side)) {
@@ -215,6 +220,7 @@ export const endRent = async (req: Request, res: Response) => {
 }
 
 export const resetAllUmbrellas = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] resetAllUmbrellas called by user:", req.user)
   if (req.user?.role !== "admin") {
     return res.status(403).json({ error: "Only admin can reset the beach" })
   }
@@ -232,6 +238,7 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
 }
 
 export const generateReport = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] generateReport called with body:", req.body, "user:", req.user)
   const { date } = req.body; // Expecting 'YYYY-MM-DD'
   if (req.user?.role !== "admin") return res.status(403).json({ error: "Only admin can generate reports" });
   // Query rentals for the given day
@@ -263,6 +270,7 @@ export const generateReport = async (req: Request, res: Response) => {
 };
 
 export const getAllReports = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] getAllReports called")
   if (req.user?.role !== "admin") {
     return res.status(403).json({ error: "Only admin can view reports" });
   }
@@ -283,6 +291,7 @@ export const getAllReports = async (req: Request, res: Response) => {
 };
 
 export const deleteReport = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] deleteReport called with params:", req.params)
   if (req.user?.role !== "admin") {
     return res.status(403).json({ error: "Only admin can delete reports" });
   }

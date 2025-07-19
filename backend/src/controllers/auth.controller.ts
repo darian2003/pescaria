@@ -16,18 +16,20 @@ const pool = new Pool({
 
 export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body
+  console.log("[LOGIN] Attempt with username:", username)
 
   try {
     const result = await pool.query("SELECT * FROM users WHERE username = $1", [username])
+    console.log("[LOGIN] DB result:", result.rows)
 
     const user = result.rows[0]
 
     if (!user || user.password !== password) {
+      console.log("[LOGIN] Invalid credentials for username:", username)
       return res.status(401).json({ error: "Invalid credentials" })
     }
 
     const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET as string, { expiresIn: "12h" })
-
     const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000) // 12h
 
     await pool.query(`INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`, [
@@ -35,6 +37,7 @@ export const login = async (req: Request, res: Response) => {
       user.id,
       expiresAt,
     ])
+    console.log("[LOGIN] Login successful for username:", username)
 
     res.json({
       token,
@@ -45,7 +48,7 @@ export const login = async (req: Request, res: Response) => {
       },
     })
   } catch (err) {
-    console.error("Login error:", err)
+    console.error("[LOGIN] Login error:", err)
     res.status(500).json({ error: "Internal server error" })
   }
 }
