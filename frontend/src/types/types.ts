@@ -1,15 +1,14 @@
-// src/types.ts
-export type BedStatus = "free" | "rented_beach" | "rented_hotel"
+export type BedStatus = "free" | "rented_beach" | "rented_hotel";
 
 export interface Bed {
-  side: "left" | "right"
-  status: BedStatus
+  side: "left" | "right";
+  status: BedStatus;
 }
 
 export interface Umbrella {
-  id: number
-  umbrella_number: number
-  beds: Bed[]
+  id: number;
+  umbrella_number: number;
+  beds: Bed[];
 }
 
 export interface StaffStat {
@@ -26,4 +25,4 @@ export interface Report {
   total_earnings: number;
   generated_at?: string;
   staff_stats: StaffStat[];
-}
+} 

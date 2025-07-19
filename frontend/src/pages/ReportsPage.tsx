@@ -1,21 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // 👈 importă navigate
-
-interface StaffStat {
-  staff_id: number;
-  username: string;
-  count: number;
-}
-
-interface Report {
-  id?: number;
-  report_date: string;
-  total_rented_hotel: number;
-  total_rented_beach: number;
-  total_earnings: number;
-  generated_at?: string;
-  staff_stats: StaffStat[];
-}
+import { fetchReports, deleteReport } from '../services/reports.service';
+import type { Report, StaffStat } from '../types/types';
 
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
@@ -35,33 +21,26 @@ export default function ReportsPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const navigate = useNavigate(); // 👈 instanțiem navigate
 
-  const fetchReports = () => {
-    fetch('http://localhost:3001/umbrellas/reports', {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setReports(
-          data.sort(
-            (a: Report, b: Report) =>
-              new Date(b.generated_at || b.report_date).getTime() -
-              new Date(a.generated_at || a.report_date).getTime()
-          )
-        );
-      });
+  const fetchReportsHandler = () => {
+    fetchReports().then((data: Report[]) => {
+      setReports(
+        data.sort(
+          (a: Report, b: Report) =>
+            new Date(b.generated_at || b.report_date).getTime() -
+            new Date(a.generated_at || a.report_date).getTime()
+        )
+      );
+    });
   };
 
   useEffect(() => {
-    fetchReports();
+    fetchReportsHandler();
   }, []);
 
   const handleDelete = async (id: number) => {
-    await fetch(`http://localhost:3001/umbrellas/reports/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    });
+    await deleteReport(id);
     setDeleteId(null);
-    fetchReports();
+    fetchReportsHandler();
   };
 
   return (
@@ -100,7 +79,7 @@ export default function ReportsPage() {
               <div className="mt-2">
                 <div className="font-semibold">Statistici staff:</div>
                 <ul className="list-disc ml-6">
-                  {report.staff_stats.map((s) => (
+                  {report.staff_stats.map((s: StaffStat) => (
                     <li key={s.staff_id}>
                       {s.username}: {s.count} paturi date
                     </li>
