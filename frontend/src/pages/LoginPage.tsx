@@ -8,21 +8,26 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
-    try {
-      const data = await login(username, password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.user.role);
+ const handleLogin = async () => {
+  try {
+    const data = await login(username, password);
 
-      if (data.user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/staff');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Eroare la autentificare');
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('role', data.user.role);
+
+    
+    localStorage.setItem('username', data.user.username);
+
+    if (data.user.role === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate('/staff');
     }
-  };
+  } catch (err: any) {
+    setError(err.message || 'Eroare la autentificare');
+  }
+};
+
 
   return (
     <div className="flex h-screen items-center justify-center bg-blue-50">
