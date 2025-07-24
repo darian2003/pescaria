@@ -1,6 +1,7 @@
 import type { Request, Response } from "express"
 import { Pool } from "pg"
 import dotenv from "dotenv"
+// import { DateTime } from "luxon" // Nu mai este necesar pentru resetarea la cerere
 
 // Price constants
 const HOTEL_RENT_PRICE = 0 // Change as needed
@@ -240,6 +241,7 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
   try {
     // 1. Eliberăm toate paturile
     await pool.query(`UPDATE beds SET status = 'free'`)
+    console.log("[UMBRELLA] All beds set to 'free'.")
 
     // 2. Calculăm umbrelele care trebuie să fie ocupate de hotel
     const hotelUmbrellaNumbers: number[] = []
@@ -255,14 +257,19 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
     // 3. Setăm statusul la 'rented_hotel' pentru aceste umbrele (ambele paturi)
     await pool.query(
       `UPDATE beds
-     SET status = 'rented_hotel'
-     FROM umbrellas
-     WHERE beds.umbrella_id = umbrellas.id
-       AND umbrellas.umbrella_number = ANY($1)`,
+       SET status = 'rented_hotel'
+       FROM umbrellas
+       WHERE beds.umbrella_id = umbrellas.id
+         AND umbrellas.umbrella_number = ANY($1)`,
       [hotelUmbrellaNumbers],
     )
+    console.log(`[UMBRELLA] ${hotelUmbrellaNumbers.length} umbrellas set to 'rented_hotel'.`)
 
-    res.json({ message: "All beds reset, hotel beds set, and rentals cleared" })
+    // 4. Șterge TOATE rentals din tabel pentru a reseta balanța la 0
+    const deleteResult = await pool.query(`DELETE FROM rentals`)
+    console.log(`[UMBRELLA] Deleted ${deleteResult.rowCount} rentals to reset balance.`)
+
+    res.json({ message: "All beds reset, hotel beds set, and all rentals cleared" })
   } catch (err) {
     console.error("Error resetting umbrellas:", err)
     res.status(500).json({ error: "Internal server error" })
@@ -271,9 +278,11 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
 
 export const getTodayEarnings = async (req: Request, res: Response) => {
   try {
-    const today = new Date().toISOString().slice(0, 10)
-    const rentals = await pool.query(`SELECT price FROM rentals WHERE start_time::date = $1`, [today])
+    // Calculează câștigurile din toate înregistrările existente în rentals
+    // După o resetare, acest tabel va fi gol, deci balanța va fi 0.
+    const rentals = await pool.query(`SELECT price FROM rentals`)
     const total_earnings = rentals.rows.reduce((sum, r) => sum + Number(r.price), 0)
+    console.log(`[UMBRELLA] Current earnings: ${total_earnings}`)
     res.json({ total_earnings })
   } catch (err) {
     console.error("Error calculating today's earnings:", err)

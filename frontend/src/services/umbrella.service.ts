@@ -8,7 +8,7 @@ export const fetchUmbrellas = async () => {
 }
 
 export const resetDay = async () => {
-  await fetchWithAuth(`${API_BACKEND}/umbrellas/reset`, { method: "POST" })
+  return fetchWithAuth(`${API_BACKEND}/umbrellas/reset`, { method: "POST" })
 }
 
 export const fetchReport = async () => {
@@ -50,42 +50,8 @@ export const fetchTodayEarnings = async () => {
   return await res.json()
 }
 
-// New function to reset and then reserve specific umbrellas for hotel
+// This function now simply calls the backend's reset endpoint,
+// assuming the backend handles the reservation of 45 hotel umbrellas.
 export const resetAndReserveHotelUmbrellas = async () => {
-  // 1. Reset all umbrellas first
   await resetDay()
-
-  // 2. Define the 45 umbrellas to be reserved for hotel
-  const umbrellasToReserve: number[] = []
-
-  // Assuming a 10x17 grid (10 rows, 17 columns)
-  const numRows = 10
-  const numCols = 17
-
-  // Part 1: First 4 umbrellas from each row (columns 1, 2, 3, 4)
-  for (let row = 0; row < numRows; row++) {
-    for (let col = 0; col < 4; col++) {
-      // Umbrella numbers are 1-indexed, so (row * numCols) + col + 1
-      umbrellasToReserve.push(row * numCols + col + 1)
-    }
-  }
-
-  // Part 2: First 5 umbrellas from column 5 (rows 1, 2, 3, 4, 5)
-  const col5Index = 4 // Column 5 is at index 4 (0-indexed)
-  for (let row = 0; row < 5; row++) {
-    // Umbrella numbers are 1-indexed, so (row * numCols) + col5Index + 1
-    umbrellasToReserve.push(row * numCols + col5Index + 1)
-  }
-
-  // Ensure uniqueness (though the logic above should produce unique numbers)
-  const uniqueUmbrellas = [...new Set(umbrellasToReserve)]
-
-  // 3. Reserve both beds for each of these umbrellas for 'hotel'
-  const reservationPromises: Promise<any>[] = []
-  for (const umbrellaNumber of uniqueUmbrellas) {
-    reservationPromises.push(rentBed(umbrellaNumber, "left", "hotel"))
-    reservationPromises.push(rentBed(umbrellaNumber, "right", "hotel"))
-  }
-
-  await Promise.all(reservationPromises)
 }

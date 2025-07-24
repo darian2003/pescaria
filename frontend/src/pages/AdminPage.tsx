@@ -5,9 +5,9 @@ import UmbrellaMap from "../components/UmbrellaMap"
 import UmbrellaActionsModal from "../components/UmbrellaActionsModal"
 import {
   fetchUmbrellas,
-  resetAndReserveHotelUmbrellas,
   generateReport,
   fetchTodayEarnings,
+  resetAndReserveHotelUmbrellas, // Import the new function
 } from "../services/umbrella.service"
 import { useNavigate } from "react-router-dom"
 import type { Umbrella } from "../types"
@@ -49,10 +49,14 @@ export default function AdminPage() {
 
   const handleResetOnly = async () => {
     try {
-      await resetAndReserveHotelUmbrellas() // Call the new function
-      setBalance(0) // Balanță locală la zero
+      await resetAndReserveHotelUmbrellas() // This calls backend /umbrellas/reset
+
+      // Explicitly set balance to 0 immediately after the reset action
+      setBalance(0)
       localStorage.setItem("dailyBalance", "0")
-      await load() // Reîncarcă umbrelele și balanța
+
+      await load() // Then load the new umbrella states and confirm earnings are 0 from backend
+
       setShowResetConfirm(false)
       setShowResetSuccess(true)
     } catch (error) {
