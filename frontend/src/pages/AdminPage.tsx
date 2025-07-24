@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react"
 import UmbrellaMap from "../components/UmbrellaMap"
 import UmbrellaActionsModal from "../components/UmbrellaActionsModal"
-import { fetchUmbrellas, resetDay, generateReport, fetchTodayEarnings } from "../services/umbrella.service"
+import {
+  fetchUmbrellas,
+  resetAndReserveHotelUmbrellas,
+  generateReport,
+  fetchTodayEarnings,
+} from "../services/umbrella.service"
 import { useNavigate } from "react-router-dom"
 import type { Umbrella } from "../types"
-
 
 export default function AdminPage() {
   const [selected, setSelected] = useState<Umbrella | null>(null)
@@ -19,10 +23,9 @@ export default function AdminPage() {
 
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showReportConfirm, setShowReportConfirm] = useState(false)
-  const [viewMode, setViewMode] = useState<"12x15" | "6x30">("12x15")
   const [menuOpen, setMenuOpen] = useState(false)
   const navigate = useNavigate()
-  const [showResetSuccess, setShowResetSuccess] = useState(false);
+  const [showResetSuccess, setShowResetSuccess] = useState(false)
 
   useEffect(() => {
     localStorage.setItem("dailyBalance", balance.toString())
@@ -30,11 +33,11 @@ export default function AdminPage() {
 
   const load = async () => {
     try {
-      const data = await fetchUmbrellas();
-      setUmbrellas(data);
+      const data = await fetchUmbrellas()
+      setUmbrellas(data)
       // Fetch today's earnings for balance
-      const earnings = await fetchTodayEarnings();
-      setBalance(earnings.total_earnings || 0);
+      const earnings = await fetchTodayEarnings()
+      setBalance(earnings.total_earnings || 0)
     } catch (error) {
       console.error("Eroare la încărcarea datelor:", error)
     }
@@ -46,15 +49,15 @@ export default function AdminPage() {
 
   const handleResetOnly = async () => {
     try {
-      await resetDay(); // Resetează tot în backend
-      setBalance(0); // Balanță locală la zero
-      localStorage.setItem("dailyBalance", "0");
-      await load(); // Reîncarcă umbrelele și balanța
-      setShowResetConfirm(false);
-      setShowResetSuccess(true);
+      await resetAndReserveHotelUmbrellas() // Call the new function
+      setBalance(0) // Balanță locală la zero
+      localStorage.setItem("dailyBalance", "0")
+      await load() // Reîncarcă umbrelele și balanța
+      setShowResetConfirm(false)
+      setShowResetSuccess(true)
     } catch (error) {
-      console.error("Eroare la resetarea zilei:", error);
-      alert("Eroare la resetarea zilei. Încercați din nou.");
+      console.error("Eroare la resetarea zilei:", error)
+      alert("Eroare la resetarea zilei. Încercați din nou.")
     }
   }
 
@@ -121,9 +124,9 @@ export default function AdminPage() {
           </button>
           <button
             onClick={() => {
-              localStorage.removeItem("token");
-              localStorage.removeItem("role");
-              navigate("/");
+              localStorage.removeItem("token")
+              localStorage.removeItem("role")
+              navigate("/")
             }}
             className="bg-red-500 text-white px-4 py-2 rounded shadow hover:bg-red-600 transition"
           >
@@ -133,10 +136,7 @@ export default function AdminPage() {
 
         {/* MENIU HAMBURGER */}
         <div className="sm:hidden">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="text-gray-700 text-2xl"
-          >
+          <button onClick={() => setMenuOpen(!menuOpen)} className="text-gray-700 text-2xl">
             ☰
           </button>
         </div>
@@ -146,35 +146,47 @@ export default function AdminPage() {
       {menuOpen && (
         <div className="fixed inset-0 z-50 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center gap-6 text-xl font-semibold text-gray-800">
           <button
-            onClick={() => { navigate("/admin"); setMenuOpen(false) }}
+            onClick={() => {
+              navigate("/admin")
+              setMenuOpen(false)
+            }}
             className="bg-green-600 text-white px-6 py-3 rounded shadow hover:bg-green-700 transition w-2/3 text-center"
           >
             Hartă
           </button>
           <button
-            onClick={() => { navigate("/reports"); setMenuOpen(false) }}
+            onClick={() => {
+              navigate("/reports")
+              setMenuOpen(false)
+            }}
             className="bg-green-600 text-white px-6 py-3 rounded shadow hover:bg-green-700 transition w-2/3 text-center"
           >
             Rapoarte
           </button>
           <button
-            onClick={() => { setShowResetConfirm(true); setMenuOpen(false) }}
+            onClick={() => {
+              setShowResetConfirm(true)
+              setMenuOpen(false)
+            }}
             className="bg-green-600 text-white px-6 py-3 rounded shadow hover:bg-green-700 transition w-2/3 text-center"
           >
             Resetare zi
           </button>
           <button
-            onClick={() => { setShowReportConfirm(true); setMenuOpen(false) }}
+            onClick={() => {
+              setShowReportConfirm(true)
+              setMenuOpen(false)
+            }}
             className="bg-green-600 text-white px-6 py-3 rounded shadow hover:bg-green-700 transition w-2/3 text-center"
           >
             Generează raport
           </button>
           <button
             onClick={() => {
-              localStorage.removeItem("token");
-              localStorage.removeItem("role");
-              setMenuOpen(false);
-              navigate("/");
+              localStorage.removeItem("token")
+              localStorage.removeItem("role")
+              setMenuOpen(false)
+              navigate("/")
             }}
             className="bg-red-500 text-white px-6 py-3 rounded shadow hover:bg-red-600 transition w-2/3 text-center"
           >
@@ -194,19 +206,11 @@ export default function AdminPage() {
         <div className="text-xl font-semibold text-green-700">
           Balanță zi: <span className="text-green-600">{balance} lei</span>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-4 py-2 rounded-full shadow-sm transition"
-            onClick={() => setViewMode((prev) => (prev === "12x15" ? "6x30" : "12x15"))}
-          >
-            Vizual: {viewMode === "12x15" ? "6x30" : "12x15"}
-          </button>
-        </div>
       </div>
 
       {/* HARTA */}
       <div className="px-4 sm:px-6 lg:px-8">
-        <UmbrellaMap umbrellas={umbrellas} onSelect={setSelected} viewMode={viewMode} />
+        <UmbrellaMap umbrellas={umbrellas} onSelect={setSelected} />
       </div>
 
       {/* MODALE */}
@@ -269,7 +273,10 @@ export default function AdminPage() {
         <div className="flex flex-col items-center justify-center fixed inset-0 bg-black bg-opacity-60 z-50">
           <div className="bg-white p-8 rounded shadow-md w-96 text-center">
             <h2 className="text-2xl font-bold mb-4 text-green-600">Ziua a fost resetată cu succes!</h2>
-            <p className="mb-4">Toate paturile au fost eliberate și balanța a fost resetată.</p>
+            <p className="mb-4">
+              Toate paturile au fost eliberate și balanța a fost resetată. 45 de umbrele au fost rezervate automat
+              pentru hotel.
+            </p>
             <button
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               onClick={() => setShowResetSuccess(false)}

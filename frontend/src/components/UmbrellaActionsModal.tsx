@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState } from "react"
+import { Fragment, useState, useEffect } from "react" // Import useEffect
 import { Dialog, Transition } from "@headlessui/react"
 import { X } from "lucide-react"
 import { freeBed, rentBed, endRent } from "../services/umbrella.service"
@@ -25,12 +25,7 @@ interface Props {
   onBalanceUpdate?: (change: number) => void
 }
 
-export default function UmbrellaActionsModal({
-  umbrella,
-  onClose,
-  onRefresh,
-  onBalanceUpdate,
-}: Props) {
+export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onBalanceUpdate }: Props) {
   const role = localStorage.getItem("role")
   const [bedStates, setBedStates] = useState<BedStatus[]>([
     umbrella.beds.find((b) => b.side === "left")?.status ?? "free",
@@ -38,10 +33,19 @@ export default function UmbrellaActionsModal({
   ])
   const [loading, setLoading] = useState(false)
 
+  // Debugging: Log initial bed states and role
+  useEffect(() => {
+    console.log("UmbrellaActionsModal opened for umbrella:", umbrella.umbrella_number)
+    console.log("Initial bed states:", bedStates)
+    console.log("Current role:", role)
+  }, [umbrella, bedStates, role])
+
   const toggleBeach = (idx: number) => {
     setBedStates((prev) => {
       const next = [...prev]
-      next[idx] = prev[idx] === "free" ? "rented_beach" : "free"
+      const newStatus = prev[idx] === "free" ? "rented_beach" : "free"
+      console.log(`Toggling bed ${idx} to beach: ${prev[idx]} -> ${newStatus}`)
+      next[idx] = newStatus
       return next
     })
   }
@@ -49,13 +53,18 @@ export default function UmbrellaActionsModal({
   const toggleHotel = (idx: number) => {
     setBedStates((prev) => {
       const next = [...prev]
-      next[idx] = prev[idx] === "rented_hotel" ? "free" : "rented_hotel"
+      const newStatus = prev[idx] === "rented_hotel" ? "free" : "rented_hotel"
+      console.log(`Toggling bed ${idx} to hotel: ${prev[idx]} -> ${newStatus}`)
+      next[idx] = newStatus
       return next
     })
   }
 
-  const hasChanged = () =>
-    bedStates.some((s, i) => s !== (umbrella.beds[i]?.status ?? "free"))
+  const hasChanged = () => {
+    const changed = bedStates.some((s, i) => s !== (umbrella.beds[i]?.status ?? "free"))
+    console.log("hasChanged:", changed)
+    return changed
+  }
 
   const handleConfirm = async () => {
     setLoading(true)
@@ -68,25 +77,33 @@ export default function UmbrellaActionsModal({
         const neu = bedStates[i]
         if (orig === neu) return
 
+        console.log(`Processing bed ${b.side}: ${orig} -> ${neu}`)
+
         if (neu === "rented_beach") {
           actions.push(rentBed(umbrella.id, b.side, "beach"))
           balanceChange += 50
-        }
-        if (neu === "rented_hotel") {
+        } else if (neu === "rented_hotel") {
           actions.push(rentBed(umbrella.id, b.side, "hotel"))
-        }
-        if (neu === "free") {
-          if (orig === "rented_beach") actions.push(freeBed(umbrella.id, b.side))
-          if (orig === "rented_hotel") actions.push(endRent(umbrella.id, b.side))
+        } else if (neu === "free") {
+          if (orig === "rented_beach") {
+            actions.push(freeBed(umbrella.id, b.side))
+            console.log(`Action: freeBed for ${umbrella.id}, ${b.side}`)
+          }
+          if (orig === "rented_hotel") {
+            actions.push(endRent(umbrella.id, b.side))
+            console.log(`Action: endRent for ${umbrella.id}, ${b.side}`)
+          }
         }
       })
 
+      console.log("Actions to perform:", actions)
       await Promise.all(actions)
       if (balanceChange > 0 && onBalanceUpdate) onBalanceUpdate(balanceChange)
 
       await onRefresh()
       onClose()
     } catch (e: any) {
+      console.error("Error during umbrella action:", e)
       alert(e.message || "Eroare la acțiune")
     } finally {
       setLoading(false)
@@ -133,10 +150,7 @@ export default function UmbrellaActionsModal({
                   <Dialog.Title className="text-xl font-bold text-gray-900">
                     Umbrela #{umbrella.umbrella_number}
                   </Dialog.Title>
-                  <button
-                    onClick={onClose}
-                    className="p-1 text-gray-500 hover:text-gray-700"
-                  >
+                  <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-700">
                     <X size={24} />
                   </button>
                 </div>
@@ -150,8 +164,16 @@ export default function UmbrellaActionsModal({
                         key={b.side}
                         className="flex flex-col items-center gap-4 rounded-lg border border-gray-200 p-4"
                       >
+                        {/* This div is for beach rent/free */}
                         <div
-                          onClick={() => !loading && toggleBeach(i)}
+                          onClick={() => {
+                            // Only allow toggling to beach if current state is free
+                            // Or if current state is rented_beach (to free it)
+                            // Do not allow toggling from rented_hotel to rented_beach directly
+                            if (!loading && (bedStates[i] === "free" || bedStates[i] === "rented_beach")) {
+                              toggleBeach(i)
+                            }
+                          }}
                           className={`${cfg.bg} flex h-32 w-28 cursor-pointer items-center justify-center rounded border-2 border-gray-300`}
                         >
                           <span className="font-semibold">{cfg.text}</span>

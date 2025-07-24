@@ -9,7 +9,6 @@ import { fetchUmbrellas } from "../services/umbrella.service"
 export default function StaffPage() {
   const [umbrellas, setUmbrellas] = useState<Umbrella[]>([])
   const [selected, setSelected] = useState<Umbrella | null>(null)
-  const [viewMode, setViewMode] = useState<"12x15" | "6x30">("12x15")
 
   // Convertește orice status API la BedStatus din types.ts
   function mapStatus(raw: string): BedStatus {
@@ -45,15 +44,9 @@ export default function StaffPage() {
       {/* HEADER STAFF */}
       <div className="sticky top-0 z-10 bg-white border-b shadow px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold text-green-700">Staff</h1>
+        {/* ȘTERGE butonul de vizualizare */}
         <div className="flex flex-1 justify-center">
-          <button
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm px-3 py-1 rounded-full shadow-sm transition"
-            onClick={() =>
-              setViewMode((prev) => (prev === "12x15" ? "6x30" : "12x15"))
-            }
-          >
-            Vizualizare: {viewMode === "12x15" ? "6x30" : "12x15"}
-          </button>
+          {/* Butonul de vizualizare a fost eliminat */}
         </div>
         <button
           className="bg-red-500 text-white text-sm px-4 py-2 rounded shadow hover:bg-red-600 transition"
@@ -72,7 +65,7 @@ export default function StaffPage() {
         <UmbrellaMap
           umbrellas={umbrellas}
           onSelect={(u) => setSelected(u)}
-          viewMode={viewMode}
+          // ȘTERGE prop-ul viewMode
         />
       </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // 👈 importă navigate
+import { useNavigate } from 'react-router-dom';
 import { fetchReports, deleteReport } from '../services/reports.service';
 import type { Report, StaffStat } from '../types/types';
 

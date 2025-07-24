@@ -6,7 +6,7 @@ import UmbrellaCircle from "./UmbrellaCircle"
 interface Props {
   umbrellas: Umbrella[]
   onSelect?: (umbrella: Umbrella) => void
-  viewMode?: "12x15" | "6x30"
+  viewMode?: "10x17" | "5x34"
 }
 
 // Mapăm status-urile vechi din API la cele din BedStatus
@@ -20,41 +20,35 @@ function mapStatus(raw: string): BedStatus {
 export default function UmbrellaMap({
   umbrellas,
   onSelect,
-  viewMode = "12x15",
 }: Props) {
   // Construim grila de umbrele
   const createUmbrellaGrid = (): Umbrella[][] => {
     const grid: Umbrella[][] = []
-    const cols = viewMode === "12x15" ? 12 : 6
-    const rows = viewMode === "12x15" ? 15 : 30
+    const rows = 10
+    const cols = 17
 
     for (let row = 0; row < rows; row++) {
       const rowUmbrellas: Umbrella[] = []
       for (let col = 0; col < cols; col++) {
         const umbrellaNumber = row * cols + col + 1
-        const existing = umbrellas.find(
+        const umbrella = umbrellas.find(
           (u) => u.umbrella_number === umbrellaNumber
         )
-
-        // Aplicăm mapStatus pentru fiecare pat
-        const beds =
-          existing?.beds.map((b) => ({
-            side: b.side,
-            status: mapStatus(b.status),
-          })) ?? [
-            { side: "left", status: "free" },
-            { side: "right", status: "free" },
-          ]
-
-        rowUmbrellas.push({
-          id: existing?.id ?? umbrellaNumber,
-          umbrella_number: umbrellaNumber,
-          beds,
-        })
+        if (umbrella) {
+          rowUmbrellas.push(umbrella)
+        } else {
+          rowUmbrellas.push({
+            id: umbrellaNumber,
+            umbrella_number: umbrellaNumber,
+            beds: [
+              { side: "left", status: "free" },
+              { side: "right", status: "free" },
+            ],
+          })
+        }
       }
       grid.push(rowUmbrellas)
     }
-
     return grid
   }
 
@@ -83,7 +77,6 @@ export default function UmbrellaMap({
                   leftStatus={left}
                   rightStatus={right}
                   onClick={() => onSelect?.(umbrella)}
-                  viewMode={viewMode} // <-- adaugă aici
                 />
               )
             })}
