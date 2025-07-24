@@ -266,8 +266,9 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
     console.log(`[UMBRELLA] ${hotelUmbrellaNumbers.length} umbrellas set to 'rented_hotel'.`)
 
     // 4. Șterge TOATE rentals din tabel pentru a reseta balanța la 0
-    const deleteResult = await pool.query(`DELETE FROM rentals`)
-    console.log(`[UMBRELLA] Deleted ${deleteResult.rowCount} rentals to reset balance.`)
+    // Folosim TRUNCATE pentru o resetare completă și definitivă a tabelului
+    await pool.query(`TRUNCATE TABLE rentals RESTART IDENTITY;`)
+    console.log(`[UMBRELLA] Rentals table truncated and identity restarted. Balance should be 0.`)
 
     res.json({ message: "All beds reset, hotel beds set, and all rentals cleared" })
   } catch (err) {
@@ -278,9 +279,8 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
 
 export const getTodayEarnings = async (req: Request, res: Response) => {
   try {
-    // Calculează câștigurile din toate înregistrările existente în rentals
-    // După o resetare, acest tabel va fi gol, deci balanța va fi 0.
     const rentals = await pool.query(`SELECT price FROM rentals`)
+    console.log("[UMBRELLA] Raw rentals fetched for earnings:", rentals.rows) // Keep this log for debugging
     const total_earnings = rentals.rows.reduce((sum, r) => sum + Number(r.price), 0)
     console.log(`[UMBRELLA] Current earnings: ${total_earnings}`)
     res.json({ total_earnings })
