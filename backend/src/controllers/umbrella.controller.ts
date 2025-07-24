@@ -1,7 +1,6 @@
 import type { Request, Response } from "express"
 import { Pool } from "pg"
 import dotenv from "dotenv"
-// import { DateTime } from "luxon" // Nu mai este necesar pentru resetarea la cerere
 
 // Price constants
 const HOTEL_RENT_PRICE = 0 // Change as needed
@@ -22,19 +21,16 @@ export const getAllUmbrellas = async (req: Request, res: Response) => {
   console.log("[UMBRELLA] getAllUmbrellas called")
   try {
     const result = await pool.query(`
-    SELECT u.id AS umbrella_id, u.umbrella_number,
-           b.id AS bed_id, b.side, b.status
-    FROM umbrellas u
-    JOIN beds b ON b.umbrella_id = u.id
-    ORDER BY u.umbrella_number, b.side
-  `)
-
+      SELECT u.id AS umbrella_id, u.umbrella_number,
+             b.id AS bed_id, b.side, b.status, b.rented_by_username
+      FROM umbrellas u
+      JOIN beds b ON b.umbrella_id = u.id
+      ORDER BY u.umbrella_number, b.side
+    `)
     // Grupăm paturile sub umbrele
     const umbrellaMap: Record<number, any> = {}
-
     result.rows.forEach((row) => {
       const id = row.umbrella_id
-
       if (!umbrellaMap[id]) {
         umbrellaMap[id] = {
           id,
@@ -42,14 +38,13 @@ export const getAllUmbrellas = async (req: Request, res: Response) => {
           beds: [],
         }
       }
-
       umbrellaMap[id].beds.push({
         id: row.bed_id,
         side: row.side,
         status: row.status,
+        rented_by_username: row.rented_by_username, // <-- Adăugat aici
       })
     })
-
     const umbrellas = Object.values(umbrellaMap)
     res.json(umbrellas)
   } catch (err) {
@@ -62,34 +57,27 @@ export const occupyBed = async (req: Request, res: Response) => {
   console.log("[UMBRELLA] occupyBed called with params:", req.params)
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const side = req.params.side
-
   if (!["left", "right"].includes(side)) {
     return res.status(400).json({ error: "Invalid side" })
   }
-
   try {
     const bedResult = await pool.query(`SELECT * FROM beds WHERE umbrella_id = $1 AND side = $2`, [umbrellaId, side])
-
     const bed = bedResult.rows[0]
-
     if (!bed) {
       return res.status(404).json({ error: "Bed not found" })
     }
-
     if (bed.status === "rented") {
       return res.status(400).json({ error: "Cannot occupy a rented bed" })
     }
-
     // Setăm statusul patului pe 'occupied'
+    // NOTA: Această funcție nu setează rented_by_username, deoarece frontend-ul folosește rentBed pentru închirieri.
     await pool.query(`UPDATE beds SET status = 'occupied' WHERE id = $1`, [bed.id])
-
     // Inserăm acțiunea în rentals
     await pool.query(
       `INSERT INTO rentals (umbrella_id, side, started_by, action, price)
-       VALUES ($1, $2, $3, 'occupy', 0)`,
+         VALUES ($1, $2, $3, 'occupy', 0)`,
       [umbrellaId, side, req.user!.id],
     )
-
     res.json({ message: "Bed occupied" })
   } catch (err) {
     console.error("Error occupying bed:", err)
@@ -101,35 +89,25 @@ export const freeBed = async (req: Request, res: Response) => {
   console.log("[UMBRELLA] freeBed called with params:", req.params)
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const side = req.params.side
-
   if (!["left", "right"].includes(side)) {
     return res.status(400).json({ error: "Invalid side" })
   }
-
   try {
     const bedResult = await pool.query(`SELECT * FROM beds WHERE umbrella_id = $1 AND side = $2`, [umbrellaId, side])
-
     const bed = bedResult.rows[0]
-
     if (!bed) {
       return res.status(404).json({ error: "Bed not found" })
     }
-
-    if (bed.status === "rented") {
-      return res.status(400).json({ error: "Cannot free a rented bed" })
-    }
-
-    // Setăm patul ca "free"
-    await pool.query(`UPDATE beds SET status = 'free' WHERE id = $1`, [bed.id])
-
+    // NOTA: Această funcție este apelată de frontend pentru a elibera paturile "rented_beach".
+    // Setăm patul ca "free" și ștergem numele utilizatorului.
+    await pool.query(`UPDATE beds SET status = 'free', rented_by_username = NULL WHERE id = $1`, [bed.id]) // <-- Adăugat aici
     // Închidem ultima acțiune de ocupare activă pentru acest pat
     await pool.query(
       `UPDATE rentals
-         SET end_time = NOW(), ended_by = $1
-         WHERE umbrella_id = $2 AND side = $3 AND action = 'rented_beach' AND end_time IS NULL`,
+           SET end_time = NOW(), ended_by = $1
+           WHERE umbrella_id = $2 AND side = $3 AND action = 'rented_beach' AND end_time IS NULL`,
       [req.user!.id, umbrellaId, side],
     )
-
     res.json({ message: "Bed freed" })
   } catch (err) {
     console.error("Error freeing bed:", err)
@@ -141,19 +119,16 @@ export const rentBed = async (req: Request, res: Response) => {
   console.log("[UMBRELLA] rentBed called with params:", req.params, "body:", req.body)
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const side = req.params.side
-  const { type } = req.body // 'hotel' or 'beach'
-
+  const { type, username } = req.body // 'hotel' or 'beach', and username <-- Adăugat username
   if (!["left", "right"].includes(side)) {
     return res.status(400).json({ error: "Invalid side" })
   }
-
   if (type === "hotel" && req.user?.role !== "admin") {
     return res.status(403).json({ error: "Only admin can rent hotel beds" })
   }
   if (type === "beach" && !["admin", "staff"].includes(req.user?.role || "")) {
     return res.status(403).json({ error: "Only admin or staff can rent beach beds" })
   }
-
   try {
     const bedResult = await pool.query(`SELECT * FROM beds WHERE umbrella_id = $1 AND side = $2`, [umbrellaId, side])
     const bed = bedResult.rows[0]
@@ -163,15 +138,15 @@ export const rentBed = async (req: Request, res: Response) => {
     if (bed.status === "rented_hotel" || bed.status === "rented_beach") {
       return res.status(400).json({ error: "Bed already rented" })
     }
-    // Setăm statusul pe 'rented_hotel' sau 'rented_beach'
+    // Setăm statusul pe 'rented_hotel' sau 'rented_beach' și salvăm numele utilizatorului
     const newStatus = type === "hotel" ? "rented_hotel" : "rented_beach"
-    await pool.query(`UPDATE beds SET status = $1 WHERE id = $2`, [newStatus, bed.id])
+    await pool.query(`UPDATE beds SET status = $1, rented_by_username = $2 WHERE id = $3`, [newStatus, username, bed.id]) // <-- Adăugat username
     // Determine price based on type
     const price = type === "hotel" ? HOTEL_RENT_PRICE : BEACH_RENT_PRICE
     // Inserăm în rentals
     await pool.query(
       `INSERT INTO rentals (umbrella_id, side, started_by, action, price)
-       VALUES ($1, $2, $3, $4, $5)`,
+         VALUES ($1, $2, $3, $4, $5)`,
       [umbrellaId, side, req.user!.id, newStatus, price],
     )
     res.json({ message: "Bed rented successfully" })
@@ -200,22 +175,18 @@ export const endRent = async (req: Request, res: Response) => {
     if (bed.status !== "rented_hotel") {
       return res.status(400).json({ error: "This bed is not currently rented from hotel" })
     }
-
     console.log(`[UMBRELLA] Bed status BEFORE update: ${bed.status} for umbrella ${umbrellaId}, side ${side}`)
-
-    // Setăm statusul pe 'free'
-    await pool.query(`UPDATE beds SET status = 'free' WHERE id = $1`, [bed.id])
-
+    // Setăm statusul pe 'free' și ștergem numele utilizatorului.
+    await pool.query(`UPDATE beds SET status = 'free', rented_by_username = NULL WHERE id = $1`, [bed.id]) // <-- Adăugat aici
     const updatedBedResult = await pool.query(`SELECT status FROM beds WHERE id = $1`, [bed.id])
     console.log(
       `[UMBRELLA] Bed status AFTER update: ${updatedBedResult.rows[0].status} for umbrella ${umbrellaId}, side ${side}`,
     )
-
     // Completăm închirierea activă în rentals
     const updateResult = await pool.query(
       `UPDATE rentals
-         SET end_time = NOW(), ended_by = $1
-         WHERE umbrella_id = $2 AND side = $3 AND action = 'rented_hotel' AND end_time IS NULL`,
+           SET end_time = NOW(), ended_by = $1
+           WHERE umbrella_id = $2 AND side = $3 AND action = 'rented_hotel' AND end_time IS NULL`,
       [req.user!.id, umbrellaId, side],
     )
     if (updateResult.rowCount === 0) {
@@ -237,12 +208,10 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
   if (req.user?.role !== "admin") {
     return res.status(403).json({ error: "Only admin can reset the beach" })
   }
-
   try {
-    // 1. Eliberăm toate paturile
-    await pool.query(`UPDATE beds SET status = 'free'`)
-    console.log("[UMBRELLA] All beds set to 'free'.")
-
+    // 1. Eliberăm toate paturile și ștergem numele utilizatorului
+    await pool.query(`UPDATE beds SET status = 'free', rented_by_username = NULL`) // <-- Adăugat aici
+    console.log("[UMBRELLA] All beds set to 'free' and usernames cleared.")
     // 2. Calculăm umbrelele care trebuie să fie ocupate de hotel
     const hotelUmbrellaNumbers: number[] = []
     // Primele 4 umbrele de pe fiecare rând (10 rânduri x 17 coloane)
@@ -253,23 +222,22 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
     }
     // Plus umbrelele 5, 22, 39, 56, 73
     hotelUmbrellaNumbers.push(5, 22, 39, 56, 73)
-
     // 3. Setăm statusul la 'rented_hotel' pentru aceste umbrele (ambele paturi)
+    // NOTA: Pentru paturile de hotel, rented_by_username rămâne NULL sau poate fi setat la 'Hotel' dacă dorești.
+    // Conform cerinței, este vorba de user-ul staff-ului, deci NULL este mai potrivit aici.
     await pool.query(
       `UPDATE beds
-       SET status = 'rented_hotel'
-       FROM umbrellas
-       WHERE beds.umbrella_id = umbrellas.id
-         AND umbrellas.umbrella_number = ANY($1)`,
+         SET status = 'rented_hotel', rented_by_username = NULL
+         FROM umbrellas
+         WHERE beds.umbrella_id = umbrellas.id
+           AND umbrellas.umbrella_number = ANY($1)`,
       [hotelUmbrellaNumbers],
     )
     console.log(`[UMBRELLA] ${hotelUmbrellaNumbers.length} umbrellas set to 'rented_hotel'.`)
-
     // 4. Șterge TOATE rentals din tabel pentru a reseta balanța la 0
     // Folosim TRUNCATE pentru o resetare completă și definitivă a tabelului
     await pool.query(`TRUNCATE TABLE rentals RESTART IDENTITY;`)
     console.log(`[UMBRELLA] Rentals table truncated and identity restarted. Balance should be 0.`)
-
     res.json({ message: "All beds reset, hotel beds set, and all rentals cleared" })
   } catch (err) {
     console.error("Error resetting umbrellas:", err)

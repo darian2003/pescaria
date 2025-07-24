@@ -12,12 +12,13 @@ CREATE TABLE IF NOT EXISTS umbrellas (
     umbrella_number INTEGER UNIQUE NOT NULL
 );
 
--- BEDS
+-- BED
 CREATE TABLE IF NOT EXISTS beds (
     id SERIAL PRIMARY KEY,
     umbrella_id INTEGER REFERENCES umbrellas(id) ON DELETE CASCADE,
     side VARCHAR(10) NOT NULL CHECK (side IN ('left', 'right')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('free', 'rented_hotel', 'rented_beach')),
+    rented_by_username TEXT, -- <-- Aceasta este linia corectă de adăugat aici
     UNIQUE (umbrella_id, side)
 );
 

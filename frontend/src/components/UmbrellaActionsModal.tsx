@@ -1,36 +1,24 @@
 "use client"
 
-import { Fragment, useState, useEffect } from "react" // Import useEffect
+import { Fragment, useState, useEffect } from "react"
 import { Dialog, Transition } from "@headlessui/react"
 import { X } from "lucide-react"
 import { freeBed, rentBed, endRent } from "../services/umbrella.service"
-
-type BedStatus = "free" | "rented_beach" | "rented_hotel"
-
-interface Bed {
-  side: "left" | "right"
-  status: BedStatus
-}
-
-interface Umbrella {
-  id: number
-  umbrella_number: number
-  beds: Bed[]
-}
+import type { Bed, BedStatus, Umbrella } from "../types" // Import Bed type
 
 interface Props {
   umbrella: Umbrella
   onClose: () => void
   onRefresh: () => void
   onBalanceUpdate?: (change: number) => void
+  staffUsername?: string // Add this prop
 }
 
-export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onBalanceUpdate }: Props) {
+export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onBalanceUpdate, staffUsername }: Props) {
   const role = localStorage.getItem("role")
-  const [bedStates, setBedStates] = useState<BedStatus[]>([
-    umbrella.beds.find((b) => b.side === "left")?.status ?? "free",
-    umbrella.beds.find((b) => b.side === "right")?.status ?? "free",
-  ])
+  const username = staffUsername || localStorage.getItem("username") || "" // Get username from staffUsername prop or localStorage
+  // Initialize bedStates with full Bed objects, including rented_by_username
+  const [bedStates, setBedStates] = useState<Bed[]>(umbrella.beds.map((bed) => ({ ...bed })))
   const [loading, setLoading] = useState(false)
 
   // Debugging: Log initial bed states and role
@@ -43,9 +31,21 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
   const toggleBeach = (idx: number) => {
     setBedStates((prev) => {
       const next = [...prev]
-      const newStatus = prev[idx] === "free" ? "rented_beach" : "free"
-      console.log(`Toggling bed ${idx} to beach: ${prev[idx]} -> ${newStatus}`)
-      next[idx] = newStatus
+      const currentStatus = prev[idx].status
+      let newStatus: BedStatus = "free"
+      let newUsername: string | undefined = undefined
+
+      if (currentStatus === "free") {
+        newStatus = "rented_beach"
+        newUsername = username // Folosește username-ul corect!
+      } else if (currentStatus === "rented_beach") {
+        newStatus = "free"
+        newUsername = undefined
+      } else {
+        return prev
+      }
+
+      next[idx] = { ...next[idx], status: newStatus, rented_by_username: newUsername }
       return next
     })
   }
@@ -53,15 +53,27 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
   const toggleHotel = (idx: number) => {
     setBedStates((prev) => {
       const next = [...prev]
-      const newStatus = prev[idx] === "rented_hotel" ? "free" : "rented_hotel"
-      console.log(`Toggling bed ${idx} to hotel: ${prev[idx]} -> ${newStatus}`)
-      next[idx] = newStatus
+      const currentStatus = prev[idx].status
+      let newStatus: BedStatus = "free"
+      let newUsername: string | undefined = undefined
+
+      if (currentStatus === "free") {
+        newStatus = "rented_hotel"
+        newUsername = username // Folosește username-ul corect!
+      } else if (currentStatus === "rented_hotel") {
+        newStatus = "free"
+        newUsername = undefined
+      } else {
+        return prev
+      }
+
+      next[idx] = { ...next[idx], status: newStatus, rented_by_username: newUsername }
       return next
     })
   }
 
   const hasChanged = () => {
-    const changed = bedStates.some((s, i) => s !== (umbrella.beds[i]?.status ?? "free"))
+    const changed = bedStates.some((s, i) => s.status !== (umbrella.beds[i]?.status ?? "free"))
     console.log("hasChanged:", changed)
     return changed
   }
@@ -74,16 +86,18 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
 
       umbrella.beds.forEach((b, i) => {
         const orig = b.status
-        const neu = bedStates[i]
+        const neu = bedStates[i].status // Use status from bedStates
+        const newUsername = bedStates[i].rented_by_username // Get username from bedStates
+
         if (orig === neu) return
 
         console.log(`Processing bed ${b.side}: ${orig} -> ${neu}`)
 
         if (neu === "rented_beach") {
-          actions.push(rentBed(umbrella.id, b.side, "beach"))
+          actions.push(rentBed(umbrella.id, b.side, "beach", newUsername)) // pentru plajă
           balanceChange += 50
         } else if (neu === "rented_hotel") {
-          actions.push(rentBed(umbrella.id, b.side, "hotel"))
+          actions.push(rentBed(umbrella.id, b.side, "hotel", newUsername)) // pentru hotel
         } else if (neu === "free") {
           if (orig === "rented_beach") {
             actions.push(freeBed(umbrella.id, b.side))
@@ -157,11 +171,14 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
 
                 {/* beds */}
                 <div className="mt-6 grid grid-cols-2 gap-6">
-                  {umbrella.beds.map((b, i) => {
-                    const cfg = statusConfig[bedStates[i]]
+                  {bedStates.map((bed, i) => {
+                    // Iterate over bedStates
+                    const cfg = statusConfig[bed.status] // Use bed.status
+                    const displayUsername = bed.rented_by_username // Use bed.rented_by_username
+
                     return (
                       <div
-                        key={b.side}
+                        key={bed.side}
                         className="flex flex-col items-center gap-4 rounded-lg border border-gray-200 p-4"
                       >
                         {/* This div is for beach rent/free */}
@@ -170,13 +187,16 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
                             // Only allow toggling to beach if current state is free
                             // Or if current state is rented_beach (to free it)
                             // Do not allow toggling from rented_hotel to rented_beach directly
-                            if (!loading && (bedStates[i] === "free" || bedStates[i] === "rented_beach")) {
+                            if (!loading && (bed.status === "free" || bed.status === "rented_beach")) {
                               toggleBeach(i)
                             }
                           }}
-                          className={`${cfg.bg} flex h-32 w-28 cursor-pointer items-center justify-center rounded border-2 border-gray-300`}
+                          className={`${cfg.bg} flex h-32 w-28 cursor-pointer items-center justify-center rounded border-2 border-gray-300 relative`} // Added relative for absolute positioning
                         >
                           <span className="font-semibold">{cfg.text}</span>
+                          {displayUsername && (bed.status === "rented_beach" || bed.status === "rented_hotel") && (
+                            <span className="absolute bottom-1 text-xs text-white/80">{displayUsername}</span>
+                          )}
                         </div>
                         {role === "admin" && (
                           <button

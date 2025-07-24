@@ -33,11 +33,11 @@ export const freeBed = async (umbrellaId: number, side: string) => {
   await fetchWithAuth(`${API_BACKEND}/umbrellas/${umbrellaId}/free/${side}`, { method: "POST" })
 }
 
-export const rentBed = async (umbrellaId: number, side: string, type: "hotel" | "beach") => {
+export const rentBed = async (umbrellaId: number, side: string, type: "hotel" | "beach", username?: string) => {
   await fetchWithAuth(`${API_BACKEND}/umbrellas/${umbrellaId}/rent/${side}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type }),
+    body: JSON.stringify({ type, username }), // ← asigură-te că trimiți username!
   })
 }
 

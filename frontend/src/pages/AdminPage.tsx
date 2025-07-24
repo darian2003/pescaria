@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom"
 import type { Umbrella } from "../types"
 
 export default function AdminPage() {
+  const navigate = useNavigate() // Moved useNavigate to the top level
   const [selected, setSelected] = useState<Umbrella | null>(null)
   const [umbrellas, setUmbrellas] = useState<Umbrella[]>([])
   const [reportSuccess, setReportSuccess] = useState(false)
@@ -20,21 +21,37 @@ export default function AdminPage() {
     const saved = localStorage.getItem("dailyBalance")
     return saved ? Number.parseInt(saved) : 0
   })
+  const [username, setUsername] = useState<string>("")
 
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showReportConfirm, setShowReportConfirm] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const navigate = useNavigate()
   const [showResetSuccess, setShowResetSuccess] = useState(false)
 
   useEffect(() => {
     localStorage.setItem("dailyBalance", balance.toString())
   }, [balance])
 
+  useEffect(() => {
+    const storedUsername = localStorage.getItem("username")
+    if (storedUsername) setUsername(storedUsername)
+  }, [])
+
   const load = async () => {
     try {
-      const data = await fetchUmbrellas()
-      setUmbrellas(data)
+      const rawData = await fetchUmbrellas()
+      // Mapează umbrelele și paturile ca să includă rented_by_username
+      const mapped: Umbrella[] = rawData.map((u: any) => ({
+        id: u.id,
+        umbrella_number: u.umbrella_number,
+        beds: (u.beds as any[]).map((b: any) => ({
+          id: b.id,
+          side: b.side,
+          status: b.status,
+          rented_by_username: b.rented_by_username, // ← adaugă această linie!
+        })),
+      }))
+      setUmbrellas(mapped)
       // Fetch today's earnings for balance
       const earnings = await fetchTodayEarnings()
       setBalance(earnings.total_earnings || 0)
@@ -223,7 +240,8 @@ export default function AdminPage() {
           umbrella={selected}
           onClose={() => setSelected(null)}
           onRefresh={load}
-          onBalanceUpdate={() => {}} // No longer needed
+          onBalanceUpdate={() => {}}
+          staffUsername={username} // ← adaugă această linie!
         />
       )}
 
