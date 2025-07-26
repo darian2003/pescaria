@@ -17,6 +17,19 @@ const pool = new Pool({
   ssl: false,
 })
 
+// Helper to check if umbrella is non-existent on the map
+function isNonExistentUmbrella(umbrellaNumber: number): boolean {
+  const cols = 10
+  const rows = 17
+  const firstRow = 0
+  const lastRow = rows - 1
+  const row = Math.floor((umbrellaNumber - 1) / cols)
+  const col = (umbrellaNumber - 1) % cols
+  return (
+    (row === firstRow || row === lastRow) && (col === 0 || col === 1)
+  )
+}
+
 export const getAllUmbrellas = async (req: Request, res: Response) => {
   console.log("[UMBRELLA] getAllUmbrellas called")
   try {
@@ -61,6 +74,12 @@ export const occupyBed = async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Invalid side" })
   }
   try {
+    // Get umbrella_number for this umbrellaId
+    const umbrellaResult = await pool.query(`SELECT umbrella_number FROM umbrellas WHERE id = $1`, [umbrellaId])
+    const umbrellaNumber = umbrellaResult.rows[0]?.umbrella_number
+    if (umbrellaNumber && isNonExistentUmbrella(umbrellaNumber)) {
+      return res.status(400).json({ error: "This umbrella cannot be occupied (non-existent on the map)" })
+    }
     const bedResult = await pool.query(`SELECT * FROM beds WHERE umbrella_id = $1 AND side = $2`, [umbrellaId, side])
     const bed = bedResult.rows[0]
     if (!bed) {
@@ -130,6 +149,12 @@ export const rentBed = async (req: Request, res: Response) => {
     return res.status(403).json({ error: "Only admin or staff can rent beach beds" })
   }
   try {
+    // Get umbrella_number for this umbrellaId
+    const umbrellaResult = await pool.query(`SELECT umbrella_number FROM umbrellas WHERE id = $1`, [umbrellaId])
+    const umbrellaNumber = umbrellaResult.rows[0]?.umbrella_number
+    if (umbrellaNumber && isNonExistentUmbrella(umbrellaNumber)) {
+      return res.status(400).json({ error: "This umbrella cannot be rented (non-existent on the map)" })
+    }
     const bedResult = await pool.query(`SELECT * FROM beds WHERE umbrella_id = $1 AND side = $2`, [umbrellaId, side])
     const bed = bedResult.rows[0]
     if (!bed) {
@@ -214,14 +239,17 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
     console.log("[UMBRELLA] All beds set to 'free' and usernames cleared.")
     // 2. Calculăm umbrelele care trebuie să fie ocupate de hotel
     const hotelUmbrellaNumbers: number[] = []
-    // Primele 4 umbrele de pe fiecare rând (10 rânduri x 17 coloane)
-    for (let row = 0; row < 10; row++) {
-      for (let col = 0; col < 4; col++) {
-        hotelUmbrellaNumbers.push(row * 17 + col + 1)
+    // Primele 4 rânduri (38 umbrele vizibile în total)
+    // Rândul 1: umbrelele 3-10 (8 umbrele vizibile)
+    for (let col = 2; col < 10; col++) {
+      hotelUmbrellaNumbers.push(0 * 10 + col + 1) // row 0, col 2-9 (umbrelele 3-10)
+    }
+    // Rândurile 2-4: toate cele 10 umbrele de pe fiecare rând (30 umbrele)
+    for (let row = 1; row <= 3; row++) {
+      for (let col = 0; col < 10; col++) {
+        hotelUmbrellaNumbers.push(row * 10 + col + 1) // umbrelele 11-40
       }
     }
-    // Plus umbrelele 5, 22, 39, 56, 73
-    hotelUmbrellaNumbers.push(5, 22, 39, 56, 73)
     // 3. Setăm statusul la 'rented_hotel' pentru aceste umbrele (ambele paturi)
     // NOTA: Pentru paturile de hotel, rented_by_username rămâne NULL sau poate fi setat la 'Hotel' dacă dorești.
     // Conform cerinței, este vorba de user-ul staff-ului, deci NULL este mai potrivit aici.

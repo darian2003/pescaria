@@ -13,7 +13,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
     if (response.status === 401) {
       // Sesiune expirată → delogare
       localStorage.clear();
-      window.location.href = '/';
+      window.location.href = '/login';
       throw new Error('Sesiunea a expirat. Relogare necesară.');
     }
   

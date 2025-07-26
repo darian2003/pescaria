@@ -7,6 +7,7 @@ interface UmbrellaCircleProps {
   leftStatus: BedStatus
   rightStatus: BedStatus
   onClick?: () => void
+  invisible?: boolean
 }
 
 const statusToColor = {
@@ -15,7 +16,21 @@ const statusToColor = {
   rented_hotel: "#3b82f6", // blue-500
 }
 
-export default function UmbrellaCircle({ number, leftStatus, rightStatus, onClick }: UmbrellaCircleProps) {
+export default function UmbrellaCircle({ number, leftStatus, rightStatus, onClick, invisible = false }: UmbrellaCircleProps) {
+  if (invisible) {
+    return (
+      <div
+        className="relative w-full h-full aspect-square rounded-full overflow-hidden border border-transparent flex items-center justify-center text-transparent"
+        style={{ visibility: 'hidden' }}
+      >
+        {/* Invisible placeholder that maintains grid spacing */}
+        <div className="absolute top-0 left-0 w-1/2 h-full" />
+        <div className="absolute top-0 right-0 w-1/2 h-full" />
+        <span className="z-10 text-base sm:text-lg md:text-xl font-bold">{number}</span>
+      </div>
+    )
+  }
+
   return (
     <div
       className="relative w-full h-full aspect-square rounded-full overflow-hidden border border-black cursor-pointer flex items-center justify-center text-white font-bold"

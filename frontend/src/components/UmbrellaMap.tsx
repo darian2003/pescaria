@@ -24,8 +24,8 @@ export default function UmbrellaMap({
   // Construim grila de umbrele
   const createUmbrellaGrid = (): Umbrella[][] => {
     const grid: Umbrella[][] = []
-    const rows = 10
-    const cols = 17
+    const rows = 17
+    const cols = 10
 
     for (let row = 0; row < rows; row++) {
       const rowUmbrellas: Umbrella[] = []
@@ -62,7 +62,7 @@ export default function UmbrellaMap({
             key={rowIndex}
             className="flex justify-center gap-1 sm:gap-1.5 md:gap-2 lg:gap-3"
           >
-            {row.map((umbrella) => {
+            {row.map((umbrella, colIndex) => {
               const left = mapStatus(
                 umbrella.beds.find((b) => b.side === "left")?.status ?? "free"
               )
@@ -70,13 +70,17 @@ export default function UmbrellaMap({
                 umbrella.beds.find((b) => b.side === "right")?.status ?? "free"
               )
 
+              // Check if this umbrella should be invisible (first two columns of first/last row)
+              const isInvisible = ((rowIndex === 0 || rowIndex === 16) && (colIndex === 0 || colIndex === 1))
+
               return (
                 <UmbrellaCircle
                   key={umbrella.id}
                   number={umbrella.umbrella_number}
                   leftStatus={left}
                   rightStatus={right}
-                  onClick={() => onSelect?.(umbrella)}
+                  onClick={isInvisible ? undefined : () => onSelect?.(umbrella)}
+                  invisible={isInvisible}
                 />
               )
             })}

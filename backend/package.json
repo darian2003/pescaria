@@ -7,7 +7,8 @@
     "dev": "ts-node src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "migrate": "ts-node src/db/migrate.ts"
+    "migrate": "ts-node src/db/migrate.ts",
+    "drop-tables": "ts-node src/db/dropAllTables.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
