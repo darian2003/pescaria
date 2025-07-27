@@ -7,6 +7,8 @@ import {
   rentBed,
   resetAllUmbrellas,
   getTodayEarnings,
+  addExtraBed,
+  removeExtraBed,
 } from "../controllers/umbrella.controller"
 import { authMiddleware } from "../middleware/auth.middleware"
 
@@ -19,5 +21,9 @@ router.post("/:umbrellaId/rent/:side", authMiddleware, rentBed)
 router.post("/:umbrellaId/end-rent/:side", authMiddleware, endRent)
 router.post("/reset", authMiddleware, resetAllUmbrellas)
 router.get("/earnings", authMiddleware, getTodayEarnings)
+
+// Extra beds routes
+router.post("/:umbrellaId/extra-beds/add", authMiddleware, addExtraBed)
+router.post("/:umbrellaId/extra-beds/remove", authMiddleware, removeExtraBed)
 
 export default router

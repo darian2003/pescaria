@@ -23,6 +23,8 @@ async function runDropMigration(fileName: string) {
 
 async function dropAllTables() {
   try {
+    console.log("🔄 Starting to drop all tables including extra_beds table...")
+    
     await runDropMigration("004_drop_all_tables.sql")
 
     // Verify tables are dropped
@@ -39,7 +41,7 @@ async function dropAllTables() {
       console.log("⚠️  Warning: Some tables still exist:", result.rows.map(row => row.table_name))
     }
 
-    console.log("✅ All tables dropped successfully.")
+    console.log("✅ All tables dropped successfully including extra_beds table.")
   } catch (error) {
     console.error("❌ Error during database cleanup:", error)
     throw error

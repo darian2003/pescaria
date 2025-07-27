@@ -39,8 +39,19 @@ export const generateReport = async (req: Request, res: Response) => {
     const total_rented_hotel = Number.parseInt(hotelBedsCountResult.rows[0].count)
     console.log(`[REPORTS] Current count of rented_hotel beds from DB: ${total_rented_hotel}`)
 
-    // Calculate total_earnings from rentals (transactions)
-    const total_earnings = rentals.rows.reduce((sum, r) => sum + Number(r.price), 0)
+    // Calculate extra beds data
+    const extraBedsResult = await pool.query(`
+      SELECT COUNT(*) as total_rented, SUM(price) as total_earnings
+      FROM extra_beds 
+      WHERE status = 'rented_beach' AND start_time::date = $1
+    `, [date])
+    
+    const total_extra_beds_rented = Number.parseInt(extraBedsResult.rows[0].total_rented || 0)
+    const total_extra_beds_earnings = Number(extraBedsResult.rows[0].total_earnings || 0)
+    console.log(`[REPORTS] Extra beds rented: ${total_extra_beds_rented}, earnings: ${total_extra_beds_earnings}`)
+
+    // Calculate total_earnings from rentals (transactions) + extra beds
+    const total_earnings = rentals.rows.reduce((sum, r) => sum + Number(r.price), 0) + total_extra_beds_earnings
 
     // Staff stats
     const staffMap: Record<string, { staff_id: number; username: string; count: number }> = {}
@@ -55,12 +66,20 @@ export const generateReport = async (req: Request, res: Response) => {
     // Save report
     await pool.query(
       `
-      INSERT INTO daily_reports (report_date, total_rented_beach, total_rented_hotel, total_earnings, staff_stats)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO daily_reports (report_date, total_rented_beach, total_rented_hotel, total_earnings, staff_stats, extra_beds_rented, extra_beds_earnings)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `,
-      [date, total_rented_beach, total_rented_hotel, total_earnings, JSON.stringify(staff_stats)],
+      [date, total_rented_beach, total_rented_hotel, total_earnings, JSON.stringify(staff_stats), total_extra_beds_rented, total_extra_beds_earnings],
     )
-    res.json({ report_date: date, total_rented_hotel, total_rented_beach, total_earnings, staff_stats })
+    res.json({ 
+      report_date: date, 
+      total_rented_hotel, 
+      total_rented_beach, 
+      total_earnings, 
+      staff_stats,
+      extra_beds_rented: total_extra_beds_rented,
+      extra_beds_earnings: total_extra_beds_earnings
+    })
   } catch (err) {
     console.error("[REPORTS] Error generating report:", err)
     res.status(500).json({ error: "Internal server error" })

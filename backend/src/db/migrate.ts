@@ -26,6 +26,7 @@ async function initializeDatabase() {
     await runMigration("001_create_tables.sql")
     await runMigration("002_insert_initial_data.sql")
     await runMigration("003_insert_admin_user.sql")
+    await runMigration("006_add_extra_beds.sql")
 
     console.log("✅ All migrations executed successfully.")
   } catch (error) {

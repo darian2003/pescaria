@@ -34,31 +34,58 @@ export const getAllUmbrellas = async (req: Request, res: Response) => {
   console.log("[UMBRELLA] getAllUmbrellas called")
   try {
     const result = await pool.query(`
-      SELECT u.id AS umbrella_id, u.umbrella_number,
+      SELECT u.id AS umbrella_id, u.umbrella_number, u.extra_beds,
              b.id AS bed_id, b.side, b.status, b.rented_by_username
       FROM umbrellas u
       JOIN beds b ON b.umbrella_id = u.id
       ORDER BY u.umbrella_number, b.side
     `)
+    
+    console.log("[UMBRELLA] Raw database result:", result.rows.slice(0, 3)) // Log first 3 rows for debugging
+    
+    // Get extra beds data
+    const extraBedsResult = await pool.query(`
+      SELECT umbrella_id, bed_number, status, rented_by_username
+      FROM extra_beds
+      ORDER BY umbrella_id, bed_number
+    `)
+    
     // Grupăm paturile sub umbrele
     const umbrellaMap: Record<number, any> = {}
     result.rows.forEach((row) => {
       const id = row.umbrella_id
       if (!umbrellaMap[id]) {
+        console.log(`[UMBRELLA] Creating umbrella ${id}, extra_beds: ${row.extra_beds}, type: ${typeof row.extra_beds}`)
         umbrellaMap[id] = {
           id,
           umbrella_number: row.umbrella_number,
+          extra_beds: row.extra_beds,
           beds: [],
+          extra_beds_data: []
         }
       }
       umbrellaMap[id].beds.push({
         id: row.bed_id,
         side: row.side,
         status: row.status,
-        rented_by_username: row.rented_by_username, // <-- Adăugat aici
+        rented_by_username: row.rented_by_username,
       })
     })
+    
+    // Add extra beds data
+    extraBedsResult.rows.forEach((row) => {
+      const umbrellaId = row.umbrella_id
+      if (umbrellaMap[umbrellaId]) {
+        umbrellaMap[umbrellaId].extra_beds_data.push({
+          bed_number: row.bed_number,
+          status: row.status,
+          rented_by_username: row.rented_by_username,
+        })
+      }
+    })
+    
     const umbrellas = Object.values(umbrellaMap)
+    console.log("[UMBRELLA] Final umbrellas data (first 2):", umbrellas.slice(0, 2))
     res.json(umbrellas)
   } catch (err) {
     console.error("Error fetching umbrellas:", err)
@@ -285,3 +312,94 @@ export const getTodayEarnings = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal server error" })
   }
 }
+
+// Extra beds functionality
+export const addExtraBed = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] addExtraBed called with params:", req.params, "body:", req.body)
+  const umbrellaId = Number.parseInt(req.params.umbrellaId)
+  const { username } = req.body
+  
+  if (!["admin", "staff"].includes(req.user?.role || "")) {
+    return res.status(403).json({ error: "Only admin or staff can add extra beds" })
+  }
+  
+  try {
+    // Get current extra beds count
+    const umbrellaResult = await pool.query(`SELECT extra_beds FROM umbrellas WHERE id = $1`, [umbrellaId])
+    if (umbrellaResult.rowCount === 0) {
+      return res.status(404).json({ error: "Umbrella not found" })
+    }
+    
+    const currentExtraBeds = umbrellaResult.rows[0].extra_beds
+    const newExtraBeds = currentExtraBeds + 1
+    
+    console.log(`[UMBRELLA] Current extra beds: ${currentExtraBeds}, new count: ${newExtraBeds}`)
+    console.log(`[UMBRELLA] User info:`, { userId: req.user?.id, username, role: req.user?.role })
+    
+    // Update umbrella with new extra beds count
+    await pool.query(`UPDATE umbrellas SET extra_beds = $1 WHERE id = $2`, [newExtraBeds, umbrellaId])
+    
+    // Create the new extra bed record and immediately rent it
+    await pool.query(
+      `INSERT INTO extra_beds (umbrella_id, bed_number, status, rented_by_username, started_by, price) 
+       VALUES ($1, $2, 'rented_beach', $3, $4, $5)`,
+      [umbrellaId, newExtraBeds, username, req.user?.id || null, BEACH_RENT_PRICE]
+    )
+    
+    console.log(`[UMBRELLA] Added extra bed ${newExtraBeds} to umbrella ${umbrellaId}`)
+    res.json({ message: "Extra bed added successfully", extra_beds: newExtraBeds })
+  } catch (err) {
+    console.error("Error adding extra bed:", err)
+    res.status(500).json({ error: "Internal server error" })
+  }
+}
+
+export const removeExtraBed = async (req: Request, res: Response) => {
+  console.log("[UMBRELLA] removeExtraBed called with params:", req.params)
+  const umbrellaId = Number.parseInt(req.params.umbrellaId)
+  
+  if (!["admin", "staff"].includes(req.user?.role || "")) {
+    return res.status(403).json({ error: "Only admin or staff can remove extra beds" })
+  }
+  
+  try {
+    // Get current extra beds count
+    const umbrellaResult = await pool.query(`SELECT extra_beds FROM umbrellas WHERE id = $1`, [umbrellaId])
+    if (umbrellaResult.rowCount === 0) {
+      return res.status(404).json({ error: "Umbrella not found" })
+    }
+    
+    const currentExtraBeds = umbrellaResult.rows[0].extra_beds
+    if (currentExtraBeds <= 0) {
+      return res.status(400).json({ error: "No extra beds to remove" })
+    }
+    
+    const newExtraBeds = currentExtraBeds - 1
+    
+    // Check if the last extra bed is currently rented
+    const lastExtraBedResult = await pool.query(
+      `SELECT status FROM extra_beds WHERE umbrella_id = $1 AND bed_number = $2`,
+      [umbrellaId, currentExtraBeds]
+    )
+    
+    if (lastExtraBedResult.rowCount && lastExtraBedResult.rowCount > 0 && lastExtraBedResult.rows[0].status === 'rented_beach') {
+      return res.status(400).json({ error: "Cannot remove extra bed while it is rented" })
+    }
+    
+    // Remove the last extra bed
+    await pool.query(
+      `DELETE FROM extra_beds WHERE umbrella_id = $1 AND bed_number = $2`,
+      [umbrellaId, currentExtraBeds]
+    )
+    
+    // Update umbrella with new extra beds count
+    await pool.query(`UPDATE umbrellas SET extra_beds = $1 WHERE id = $2`, [newExtraBeds, umbrellaId])
+    
+    console.log(`[UMBRELLA] Removed extra bed ${currentExtraBeds} from umbrella ${umbrellaId}`)
+    res.json({ message: "Extra bed removed successfully", extra_beds: newExtraBeds })
+  } catch (err) {
+    console.error("Error removing extra bed:", err)
+    res.status(500).json({ error: "Internal server error" })
+  }
+}
+
