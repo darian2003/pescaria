@@ -55,3 +55,20 @@ export const fetchTodayEarnings = async () => {
 export const resetAndReserveHotelUmbrellas = async () => {
   await resetDay()
 }
+
+// Extra beds functionality
+export const addExtraBed = async (umbrellaId: number, username?: string) => {
+  const res = await fetchWithAuth(`${API_BACKEND}/umbrellas/${umbrellaId}/extra-beds/add`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username }),
+  })
+  return await res.json()
+}
+
+export const removeExtraBed = async (umbrellaId: number) => {
+  const res = await fetchWithAuth(`${API_BACKEND}/umbrellas/${umbrellaId}/extra-beds/remove`, { method: "POST" })
+  return await res.json()
+}
+
+

@@ -26,6 +26,8 @@ export default function StaffPage() {
     const mapped: Umbrella[] = rawData.map((u) => ({
       id: u.id,
       umbrella_number: u.umbrella_number,
+      extra_beds: u.extra_beds || 0,
+      extra_beds_data: u.extra_beds_data || [],
       beds: (u.beds as any[]).map((b) => ({
         side: b.side,
         status: mapStatus(b.status),

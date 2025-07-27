@@ -44,6 +44,8 @@ export default function AdminPage() {
       const mapped: Umbrella[] = rawData.map((u: any) => ({
         id: u.id,
         umbrella_number: u.umbrella_number,
+        extra_beds: u.extra_beds || 0,
+        extra_beds_data: u.extra_beds_data || [],
         beds: (u.beds as any[]).map((b: any) => ({
           id: b.id,
           side: b.side,

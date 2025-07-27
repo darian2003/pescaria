@@ -75,7 +75,11 @@ export default function ReportsPage() {
               </div>
               <div>Total închirieri plajă: {report.total_rented_beach}</div>
               <div>Total închirieri hotel: {report.total_rented_hotel}</div>
+              <div>Paturi extra închiriate: {report.extra_beds_rented || 0}</div>
               <div>Total încasări: {report.total_earnings} lei</div>
+              <div className="text-sm text-gray-600">
+                (din care {report.extra_beds_earnings || 0} lei de la paturi extra)
+              </div>
               <div className="mt-2">
                 <div className="font-semibold">Statistici staff:</div>
                 <ul className="list-disc ml-6">

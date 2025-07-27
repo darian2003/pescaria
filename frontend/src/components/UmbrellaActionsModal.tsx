@@ -3,8 +3,8 @@
 import { Fragment, useState, useEffect } from "react"
 import { Dialog, Transition } from "@headlessui/react"
 import { X } from "lucide-react"
-import { freeBed, rentBed, endRent } from "../services/umbrella.service"
-import type { Bed, BedStatus, Umbrella } from "../types" // Import Bed type
+import { freeBed, rentBed, endRent, addExtraBed, removeExtraBed } from "../services/umbrella.service"
+import type { Bed, BedStatus, Umbrella, ExtraBed } from "../types" // Import Bed type
 
 interface Props {
   umbrella: Umbrella
@@ -19,6 +19,7 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
   const username = staffUsername || localStorage.getItem("username") || "" // Get username from staffUsername prop or localStorage
   // Initialize bedStates with full Bed objects, including rented_by_username
   const [bedStates, setBedStates] = useState<Bed[]>(umbrella.beds.map((bed) => ({ ...bed })))
+  const [extraBedsCount, setExtraBedsCount] = useState(umbrella.extra_beds || 0)
   const [loading, setLoading] = useState(false)
 
   // Debugging: Log initial bed states and role
@@ -26,7 +27,9 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
     console.log("UmbrellaActionsModal opened for umbrella:", umbrella.umbrella_number)
     console.log("Initial bed states:", bedStates)
     console.log("Current role:", role)
-  }, [umbrella, bedStates, role])
+    console.log("Umbrella extra_beds:", umbrella.extra_beds)
+    console.log("Extra beds count state:", extraBedsCount)
+  }, [umbrella, bedStates, role, extraBedsCount])
 
   const toggleBeach = (idx: number) => {
     setBedStates((prev) => {
@@ -73,7 +76,9 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
   }
 
   const hasChanged = () => {
-    const changed = bedStates.some((s, i) => s.status !== (umbrella.beds[i]?.status ?? "free"))
+    const bedChanged = bedStates.some((s, i) => s.status !== (umbrella.beds[i]?.status ?? "free"))
+    const extraBedsChanged = extraBedsCount !== umbrella.extra_beds
+    const changed = bedChanged || extraBedsChanged
     console.log("hasChanged:", changed)
     return changed
   }
@@ -84,6 +89,7 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
       const actions: Promise<any>[] = []
       let balanceChange = 0
 
+      // Handle regular beds
       umbrella.beds.forEach((b, i) => {
         const orig = b.status
         const neu = bedStates[i].status // Use status from bedStates
@@ -109,6 +115,29 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
           }
         }
       })
+
+      // Handle extra beds changes
+      console.log(`[MODAL] Extra beds comparison: extraBedsCount=${extraBedsCount}, umbrella.extra_beds=${umbrella.extra_beds}`)
+      if (extraBedsCount !== umbrella.extra_beds) {
+        console.log(`[MODAL] Extra beds changed, processing...`)
+        if (extraBedsCount > (umbrella.extra_beds || 0)) {
+          // Adding extra beds
+          const bedsToAdd = extraBedsCount - (umbrella.extra_beds || 0)
+          console.log(`[MODAL] Adding ${bedsToAdd} extra beds`)
+          for (let i = 0; i < bedsToAdd; i++) {
+            actions.push(addExtraBed(umbrella.id, username))
+          }
+        } else {
+          // Removing extra beds
+          const bedsToRemove = (umbrella.extra_beds || 0) - extraBedsCount
+          console.log(`[MODAL] Removing ${bedsToRemove} extra beds`)
+          for (let i = 0; i < bedsToRemove; i++) {
+            actions.push(removeExtraBed(umbrella.id))
+          }
+        }
+      } else {
+        console.log(`[MODAL] Extra beds unchanged`)
+      }
 
       console.log("Actions to perform:", actions)
       await Promise.all(actions)
@@ -210,6 +239,33 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
                       </div>
                     )
                   })}
+                </div>
+
+                {/* Extra beds section */}
+                <div className="mt-6 border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Extra Beds</h3>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={() => !loading && setExtraBedsCount(prev => Math.max(0, prev - 1))}
+                      disabled={loading}
+                      className="w-12 h-12 rounded-full bg-red-500 text-white font-bold text-xl hover:bg-red-600 disabled:opacity-50"
+                    >
+                      -
+                    </button>
+                    <div className="text-2xl font-bold text-gray-900 min-w-[3rem] text-center">
+                      {extraBedsCount}
+                    </div>
+                    <button
+                      onClick={() => !loading && setExtraBedsCount(prev => prev + 1)}
+                      disabled={loading}
+                      className="w-12 h-12 rounded-full bg-green-500 text-white font-bold text-xl hover:bg-green-600 disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-600 text-center mt-2">
+                    Extra beds can only be rented for beach use
+                  </p>
                 </div>
 
                 {/* footer */}
