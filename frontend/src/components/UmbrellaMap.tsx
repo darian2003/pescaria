@@ -44,6 +44,8 @@ export default function UmbrellaMap({
               { side: "left", status: "free" },
               { side: "right", status: "free" },
             ],
+            extra_beds: 0,
+            extra_beds_data: [],
           })
         }
       }
