@@ -32,11 +32,13 @@ export const generateReport = async (req: Request, res: Response) => {
     )
 
     // Calculate total_rented_beach from rentals (transactions)
-    const total_rented_beach = rentals.rows.filter((r) => r.action === "rented_beach").length
+    const rentalsRowCount = rentals.rowCount ?? 0;
+    const total_rented_beach = rentalsRowCount > 0 ? rentals.rows.filter((r) => r.action === "rented_beach").length : 0
 
     // Calculate total_rented_hotel by querying the current status of beds
     const hotelBedsCountResult = await pool.query(`SELECT COUNT(*) FROM beds WHERE status = 'rented_hotel'`)
-    const total_rented_hotel = Number.parseInt(hotelBedsCountResult.rows[0].count)
+    const hotelBedsRowCount = hotelBedsCountResult.rowCount ?? 0;
+    const total_rented_hotel = hotelBedsRowCount > 0 ? Number.parseInt(hotelBedsCountResult.rows[0].count) : 0
     console.log(`[REPORTS] Current count of rented_hotel beds from DB: ${total_rented_hotel}`)
 
     // Calculate extra beds data
@@ -46,22 +48,50 @@ export const generateReport = async (req: Request, res: Response) => {
       WHERE status = 'rented_beach' AND start_time::date = $1
     `, [date])
     
-    const total_extra_beds_rented = Number.parseInt(extraBedsResult.rows[0].total_rented || 0)
-    const total_extra_beds_earnings = Number(extraBedsResult.rows[0].total_earnings || 0)
+    const extraBedsRowCount = extraBedsResult.rowCount ?? 0;
+    const total_extra_beds_rented = extraBedsRowCount > 0 && extraBedsResult.rows[0].total_rented !== null ? Number.parseInt(extraBedsResult.rows[0].total_rented) : 0
+    const total_extra_beds_earnings = extraBedsRowCount > 0 && extraBedsResult.rows[0].total_earnings !== null ? Number(extraBedsResult.rows[0].total_earnings) : 0
     console.log(`[REPORTS] Extra beds rented: ${total_extra_beds_rented}, earnings: ${total_extra_beds_earnings}`)
 
     // Calculate total_earnings from rentals (transactions) + extra beds
-    const total_earnings = rentals.rows.reduce((sum, r) => sum + Number(r.price), 0) + total_extra_beds_earnings
+    const total_earnings = (rentalsRowCount > 0 ? rentals.rows.reduce((sum, r) => sum + Number(r.price), 0) : 0) + total_extra_beds_earnings
 
-    // Staff stats
-    const staffMap: Record<string, { staff_id: number; username: string; count: number }> = {}
-    rentals.rows.forEach((r) => {
-      if (r.started_by && r.username) {
-        if (!staffMap[r.started_by]) staffMap[r.started_by] = { staff_id: r.started_by, username: r.username, count: 0 }
-        staffMap[r.started_by].count += 1
-      }
-    })
-    const staff_stats = Object.values(staffMap)
+    // Staff stats: rentals + extra beds (cu detaliu extra in username)
+    // 1. Rentals per staff
+    const staffMap: Record<string, { staff_id: number; username: string; count: number; extra_beds_count: number }> = {}
+    if (rentalsRowCount > 0) {
+      rentals.rows.forEach((r) => {
+        if (r.started_by && r.username) {
+          if (!staffMap[r.started_by]) staffMap[r.started_by] = { staff_id: r.started_by, username: r.username, count: 0, extra_beds_count: 0 }
+          staffMap[r.started_by].count += 1
+        }
+      })
+    }
+
+    // 2. Extra beds per staff (for the same day)
+    const extraBedsStaffResult = await pool.query(
+      `SELECT started_by, u.username, COUNT(*) as count
+       FROM extra_beds eb
+       LEFT JOIN users u ON eb.started_by = u.id
+       WHERE eb.start_time::date = $1 AND eb.started_by IS NOT NULL
+       GROUP BY started_by, u.username`,
+      [date]
+    );
+    if ((extraBedsStaffResult.rowCount ?? 0) > 0) {
+      extraBedsStaffResult.rows.forEach((row) => {
+        if (!row.started_by || !row.username) return;
+        if (!staffMap[row.started_by]) {
+          staffMap[row.started_by] = { staff_id: row.started_by, username: row.username, count: 0, extra_beds_count: 0 };
+        }
+        staffMap[row.started_by].count += Number(row.count);
+        staffMap[row.started_by].extra_beds_count = Number(row.count);
+      });
+    }
+    // Modific username-ul să includă în paranteză numărul de extra beds dacă există
+    const staff_stats = Object.values(staffMap).map(s => ({
+      ...s,
+      username: s.extra_beds_count > 0 ? `${s.username} (${s.extra_beds_count} extra)` : s.username
+    }));
 
     // Save report
     await pool.query(

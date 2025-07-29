@@ -293,7 +293,13 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
     // Folosim TRUNCATE pentru o resetare completă și definitivă a tabelului
     await pool.query(`TRUNCATE TABLE rentals RESTART IDENTITY;`)
     console.log(`[UMBRELLA] Rentals table truncated and identity restarted. Balance should be 0.`)
-    res.json({ message: "All beds reset, hotel beds set, and all rentals cleared" })
+
+    // 5. Șterge toate extra beds și resetează extra_beds la 0 pentru toate umbrelele
+    await pool.query(`TRUNCATE TABLE extra_beds RESTART IDENTITY;`)
+    await pool.query(`UPDATE umbrellas SET extra_beds = 0;`)
+    console.log(`[UMBRELLA] All extra beds deleted and extra_beds count reset to 0 for all umbrellas.`)
+
+    res.json({ message: "All beds reset, hotel beds set, all rentals and extra beds cleared" })
   } catch (err) {
     console.error("Error resetting umbrellas:", err)
     res.status(500).json({ error: "Internal server error" })
@@ -302,10 +308,16 @@ export const resetAllUmbrellas = async (req: Request, res: Response) => {
 
 export const getTodayEarnings = async (req: Request, res: Response) => {
   try {
+    // Venituri din rentals (paturi normale)
     const rentals = await pool.query(`SELECT price FROM rentals`)
-    console.log("[UMBRELLA] Raw rentals fetched for earnings:", rentals.rows) // Keep this log for debugging
-    const total_earnings = rentals.rows.reduce((sum, r) => sum + Number(r.price), 0)
-    console.log(`[UMBRELLA] Current earnings: ${total_earnings}`)
+    const rentalsEarnings = rentals.rows.reduce((sum, r) => sum + Number(r.price), 0)
+
+    // Venituri din extra beds (doar cele de plajă)
+    const extraBeds = await pool.query(`SELECT SUM(price) as total FROM extra_beds WHERE status = 'rented_beach'`)
+    const extraBedsEarnings = extraBeds.rows[0]?.total ? Number(extraBeds.rows[0].total) : 0
+
+    const total_earnings = rentalsEarnings + extraBedsEarnings
+    console.log(`[UMBRELLA] Current earnings: ${total_earnings} (rentals: ${rentalsEarnings}, extra beds: ${extraBedsEarnings})`)
     res.json({ total_earnings })
   } catch (err) {
     console.error("Error calculating today's earnings:", err)
@@ -318,37 +330,45 @@ export const addExtraBed = async (req: Request, res: Response) => {
   console.log("[UMBRELLA] addExtraBed called with params:", req.params, "body:", req.body)
   const umbrellaId = Number.parseInt(req.params.umbrellaId)
   const { username } = req.body
-  
+
   if (!["admin", "staff"].includes(req.user?.role || "")) {
     return res.status(403).json({ error: "Only admin or staff can add extra beds" })
   }
-  
+
   try {
-    // Get current extra beds count
-    const umbrellaResult = await pool.query(`SELECT extra_beds FROM umbrellas WHERE id = $1`, [umbrellaId])
+    // Folosește un lock la nivel de umbrelă pentru a preveni race condition la adăugări multiple
+    await pool.query('BEGIN');
+    await pool.query('LOCK TABLE extra_beds IN EXCLUSIVE MODE');
+
+    // Recalculează mereu max(bed_number) pentru această umbrelă
+    const maxBedNumberResult = await pool.query(
+      `SELECT MAX(bed_number) as max_bed_number FROM extra_beds WHERE umbrella_id = $1`,
+      [umbrellaId]
+    );
+    const maxBedNumber = maxBedNumberResult.rows[0].max_bed_number || 0;
+    const nextBedNumber = Number(maxBedNumber) + 1;
+
+    // Actualizează extra_beds în tabela umbrellas
+    const umbrellaResult = await pool.query(`SELECT extra_beds FROM umbrellas WHERE id = $1 FOR UPDATE`, [umbrellaId])
     if (umbrellaResult.rowCount === 0) {
+      await pool.query('ROLLBACK');
       return res.status(404).json({ error: "Umbrella not found" })
     }
-    
-    const currentExtraBeds = umbrellaResult.rows[0].extra_beds
-    const newExtraBeds = currentExtraBeds + 1
-    
-    console.log(`[UMBRELLA] Current extra beds: ${currentExtraBeds}, new count: ${newExtraBeds}`)
-    console.log(`[UMBRELLA] User info:`, { userId: req.user?.id, username, role: req.user?.role })
-    
-    // Update umbrella with new extra beds count
-    await pool.query(`UPDATE umbrellas SET extra_beds = $1 WHERE id = $2`, [newExtraBeds, umbrellaId])
-    
-    // Create the new extra bed record and immediately rent it
+    const newExtraBeds = umbrellaResult.rows[0].extra_beds + 1;
+
+    // Creează noul extra bed cu bed_number unic
     await pool.query(
       `INSERT INTO extra_beds (umbrella_id, bed_number, status, rented_by_username, started_by, price) 
        VALUES ($1, $2, 'rented_beach', $3, $4, $5)`,
-      [umbrellaId, newExtraBeds, username, req.user?.id || null, BEACH_RENT_PRICE]
+      [umbrellaId, nextBedNumber, username, req.user?.id || null, BEACH_RENT_PRICE]
     )
-    
-    console.log(`[UMBRELLA] Added extra bed ${newExtraBeds} to umbrella ${umbrellaId}`)
+
+    await pool.query(`UPDATE umbrellas SET extra_beds = $1 WHERE id = $2`, [newExtraBeds, umbrellaId])
+
+    await pool.query('COMMIT');
     res.json({ message: "Extra bed added successfully", extra_beds: newExtraBeds })
   } catch (err) {
+    await pool.query('ROLLBACK');
     console.error("Error adding extra bed:", err)
     res.status(500).json({ error: "Internal server error" })
   }

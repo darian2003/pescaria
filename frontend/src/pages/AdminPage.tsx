@@ -40,7 +40,7 @@ export default function AdminPage() {
   const load = async () => {
     try {
       const rawData = await fetchUmbrellas()
-      // Mapează umbrelele și paturile ca să includă rented_by_username
+      // Mapează umbrelele și paturile ca să includă rented_by_username și extra beds
       const mapped: Umbrella[] = rawData.map((u: any) => ({
         id: u.id,
         umbrella_number: u.umbrella_number,
@@ -50,7 +50,7 @@ export default function AdminPage() {
           id: b.id,
           side: b.side,
           status: b.status,
-          rented_by_username: b.rented_by_username, // ← adaugă această linie!
+          rented_by_username: b.rented_by_username,
         })),
       }))
       setUmbrellas(mapped)
@@ -68,19 +68,31 @@ export default function AdminPage() {
 
   const handleResetOnly = async () => {
     try {
-      await resetAndReserveHotelUmbrellas() // This calls backend /umbrellas/reset
+      console.log("Starting day reset...")
+
+      // Call the reset endpoint
+      await resetAndReserveHotelUmbrellas()
+
+      console.log("Reset completed, updating UI...")
 
       // Explicitly set balance to 0 immediately after the reset action
       setBalance(0)
       localStorage.setItem("dailyBalance", "0")
 
-      await load() // Then load the new umbrella states and confirm earnings are 0 from backend
+      // Reload umbrellas to get fresh state
+      await load()
 
       setShowResetConfirm(false)
       setShowResetSuccess(true)
+
+      console.log("UI updated successfully")
     } catch (error) {
       console.error("Eroare la resetarea zilei:", error)
-      alert("Eroare la resetarea zilei. Încercați din nou.")
+      const errorMessage =
+        typeof error === "object" && error !== null && "message" in error
+          ? (error as { message?: string }).message
+          : undefined
+      alert(`Eroare la resetarea zilei: ${errorMessage || "Eroare necunoscută"}. Încercați din nou.`)
     }
   }
 
@@ -298,7 +310,7 @@ export default function AdminPage() {
           <div className="bg-white p-8 rounded shadow-md w-96 text-center">
             <h2 className="text-2xl font-bold mb-4 text-green-600">Ziua a fost resetată cu succes!</h2>
             <p className="mb-4">
-              Toate paturile au fost eliberate și balanța a fost resetată. 45 de umbrele au fost rezervate automat
+              Toate paturile au fost eliberate și balanța a fost resetată. 38 de umbrele au fost rezervate automat
               pentru hotel.
             </p>
             <button

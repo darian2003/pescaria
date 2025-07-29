@@ -70,5 +70,3 @@ export const removeExtraBed = async (umbrellaId: number) => {
   const res = await fetchWithAuth(`${API_BACKEND}/umbrellas/${umbrellaId}/extra-beds/remove`, { method: "POST" })
   return await res.json()
 }
-
-

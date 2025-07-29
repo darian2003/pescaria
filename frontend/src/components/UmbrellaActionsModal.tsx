@@ -4,7 +4,7 @@ import { Fragment, useState, useEffect } from "react"
 import { Dialog, Transition } from "@headlessui/react"
 import { X } from "lucide-react"
 import { freeBed, rentBed, endRent, addExtraBed, removeExtraBed } from "../services/umbrella.service"
-import type { Bed, BedStatus, Umbrella, ExtraBed } from "../types" // Import Bed type
+import type { Bed, BedStatus, Umbrella } from "../types" // Import Bed type
 
 interface Props {
   umbrella: Umbrella
@@ -15,6 +15,8 @@ interface Props {
 }
 
 export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onBalanceUpdate, staffUsername }: Props) {
+  // Determină dacă umbrela este de hotel (toate paturile sunt 'rented_hotel')
+  const isHotelUmbrella = umbrella.beds.every((bed) => bed.status === 'rented_hotel');
   const role = localStorage.getItem("role")
   const username = staffUsername || localStorage.getItem("username") || "" // Get username from staffUsername prop or localStorage
   // Initialize bedStates with full Bed objects, including rented_by_username
@@ -75,13 +77,6 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
     })
   }
 
-  const hasChanged = () => {
-    const bedChanged = bedStates.some((s, i) => s.status !== (umbrella.beds[i]?.status ?? "free"))
-    const extraBedsChanged = extraBedsCount !== umbrella.extra_beds
-    const changed = bedChanged || extraBedsChanged
-    console.log("hasChanged:", changed)
-    return changed
-  }
 
   const handleConfirm = async () => {
     setLoading(true)
@@ -117,7 +112,9 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
       })
 
       // Handle extra beds changes
-      console.log(`[MODAL] Extra beds comparison: extraBedsCount=${extraBedsCount}, umbrella.extra_beds=${umbrella.extra_beds}`)
+      console.log(
+        `[MODAL] Extra beds comparison: extraBedsCount=${extraBedsCount}, umbrella.extra_beds=${umbrella.extra_beds}`,
+      )
       if (extraBedsCount !== umbrella.extra_beds) {
         console.log(`[MODAL] Extra beds changed, processing...`)
         if (extraBedsCount > (umbrella.extra_beds || 0)) {
@@ -126,6 +123,7 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
           console.log(`[MODAL] Adding ${bedsToAdd} extra beds`)
           for (let i = 0; i < bedsToAdd; i++) {
             actions.push(addExtraBed(umbrella.id, username))
+            balanceChange += 50 // Add 50 lei for each extra bed
           }
         } else {
           // Removing extra beds
@@ -241,32 +239,42 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
                   })}
                 </div>
 
-                {/* Extra beds section */}
-                <div className="mt-6 border-t pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Extra Beds</h3>
-                  <div className="flex items-center justify-center gap-4">
-                    <button
-                      onClick={() => !loading && setExtraBedsCount(prev => Math.max(0, prev - 1))}
-                      disabled={loading}
-                      className="w-12 h-12 rounded-full bg-red-500 text-white font-bold text-xl hover:bg-red-600 disabled:opacity-50"
-                    >
-                      -
-                    </button>
-                    <div className="text-2xl font-bold text-gray-900 min-w-[3rem] text-center">
-                      {extraBedsCount}
+                {/* Extra beds section - ascunsă DOAR pentru staff la umbrele hotel */}
+                {!(role === "staff" && isHotelUmbrella) && (
+                  <div className="mt-6 border-t pt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Extra Beds
+                      {umbrella.extra_beds > 0 && (
+                        <span className="text-sm text-gray-600 ml-2">(Currently: {umbrella.extra_beds})</span>
+                      )}
+                    </h3>
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        onClick={() => !loading && setExtraBedsCount((prev) => Math.max(0, prev - 1))}
+                        disabled={loading || extraBedsCount <= 0}
+                        className="w-12 h-12 rounded-full bg-red-500 text-white font-bold text-xl hover:bg-red-600 disabled:opacity-50"
+                      >
+                        -
+                      </button>
+                      <div className="text-2xl font-bold text-gray-900 min-w-[3rem] text-center">{extraBedsCount}</div>
+                      <button
+                        onClick={() => !loading && setExtraBedsCount((prev) => prev + 1)}
+                        disabled={loading}
+                        className="w-12 h-12 rounded-full bg-green-500 text-white font-bold text-xl hover:bg-green-600 disabled:opacity-50"
+                      >
+                        +
+                      </button>
                     </div>
-                    <button
-                      onClick={() => !loading && setExtraBedsCount(prev => prev + 1)}
-                      disabled={loading}
-                      className="w-12 h-12 rounded-full bg-green-500 text-white font-bold text-xl hover:bg-green-600 disabled:opacity-50"
-                    >
-                      +
-                    </button>
+                    <p className="text-sm text-gray-600 text-center mt-2">Extra Bed</p>
+                    {extraBedsCount !== umbrella.extra_beds && (
+                      <p className="text-sm text-blue-600 text-center mt-1 font-medium">
+                        {extraBedsCount > umbrella.extra_beds
+                          ? `Adding ${extraBedsCount - umbrella.extra_beds} extra bed(s)`
+                          : `Removing ${umbrella.extra_beds - extraBedsCount} extra bed(s)`}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-600 text-center mt-2">
-                    Extra beds can only be rented for beach use
-                  </p>
-                </div>
+                )}
 
                 {/* footer */}
                 <div className="mt-8 flex justify-end gap-4">
@@ -279,7 +287,7 @@ export default function UmbrellaActionsModal({ umbrella, onClose, onRefresh, onB
                   </button>
                   <button
                     onClick={handleConfirm}
-                    disabled={loading || !hasChanged()}
+                    disabled={loading}
                     className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
                   >
                     Confirmă
